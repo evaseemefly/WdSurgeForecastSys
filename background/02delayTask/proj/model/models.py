@@ -43,3 +43,40 @@ class IIssueTime(BaseMeta):
     __abstract__ = True
     issue_dt: Mapped[datetime] = mapped_column(default=datetime.utcnow())
     issue_ts: Mapped[int] = mapped_column(default=Arrow.utcnow().timestamp())
+
+
+class IStationSurge(BaseMeta):
+    __abstract__ = True
+    station_code: Mapped[str] = mapped_column(default=DEFAULT_CODE)
+    surge: Mapped[float] = mapped_column(default=DEFAULT_SURGE)
+
+
+class StationForecastRealData(IIdModel, IDel, IForecastTime, IIssueTime, IStationSurge):
+    """
+        海洋预报数据
+    """
+    table_name_base = 'station_realdata_'
+
+    @classmethod
+    def get_split_tab_name(cls, dt_arrow: Arrow) -> str:
+        """
+            + 获取动态分表后的表名
+        @param dt_arrow: 时间
+        @return:
+        """
+
+        tab_dt_name: str = dt_arrow.format('yyyy')
+        tab_name: str = f'{cls.table_name_base}_{tab_dt_name}'
+        return tab_name
+
+    @classmethod
+    def set_split_tab_name(cls, dt_arrow: Arrow):
+        """
+            + 根据动态分表规则动态分表
+        @param dt_arrow:
+        @return:
+        """
+        tab_name: str = cls.get_split_tab_name(dt_arrow)
+        cls.__table__.name = tab_name
+
+    pass
