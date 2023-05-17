@@ -30,8 +30,16 @@ class StationRealData:
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
         return forecast_dt
 
+    def download(self, dir_path: str):
+        """
+            根据 self.now 进行文件下载
+        @param dir_path:
+        @return:
+        """
+
     def get_nearly_station_surge_list(self):
         """
             根据 self.now 获取临近的时间的文件路径，并读取该文件获取对应的站点预报集合
         :return:
         """
+        # file_name: NMF_TRN_OSTZSS_CSDT_2023051612_168h_SS_staSurge.txt

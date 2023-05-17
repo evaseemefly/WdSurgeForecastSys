@@ -22,6 +22,14 @@ DATABASES = {
     }
 }
 
+# 下载配置文件
+DOWNLOAD_OPTIONS = {
+    # 挂载映射盘路径
+    'remote_root_path': r'',
+    # 本地下载根目录
+    'local_root_path': r''
+}
+
 TASK_OPTIONS = {
     'name_prefix': 'TASK_SPIDER_GLOBAL_',
     'interval': 10,  # 单位min
