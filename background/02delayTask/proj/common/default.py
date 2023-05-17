@@ -1,3 +1,5 @@
+from arrow import Arrow
+
 UNLESS_CODE = 'UNLESS'
 DEFAULT_CODE = 'DEFAULT'
 DEFAULT_NAME = 'DEFAULT'
@@ -13,3 +15,6 @@ DEFAULT_YEAR = 1970
 DEFAULT_COUNTRY_INDEX = -1
 # 默认概率
 DEFAULT_PRO = 0.5
+
+# 默认的 arrow 时间 1970-1-1
+DEFAULT_ARROW = Arrow(1970, 1, 1)
