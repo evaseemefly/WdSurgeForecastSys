@@ -2,11 +2,11 @@
 DATABASES = {
     'default': {
         'ENGINE': 'mysqldb',  # 数据库引擎
-        'NAME': 'surge_global_sys',  # 数据库名
+        'NAME': 'wd_forecast_db',  # 数据库名
         'USER': 'root',  # 账号
-        'PASSWORD': '',
-        'HOST': '128.5.9.79',  # HOST
-        # 'HOST': 'host.docker.internal',  # HOST
+        'PASSWORD': '123456',
+        # 'HOST': '128.5.9.79',  # HOST
+        'HOST': 'host.docker.internal',  # docker 宿主机
         'POST': 3306,  # 端口
         'OPTIONS': {
             "init_command": "SET foreign_key_checks = 0;",

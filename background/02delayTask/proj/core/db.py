@@ -39,7 +39,7 @@ class DbFactory:
         # TypeError: Invalid argument(s) 'encoding' sent to create_engine(), using configuration MySQLDialect_mysqldb/QueuePool/Engine.  Please check that the keyword arguments are appropriate for this combination of components.
         self.engine = create_engine(
             f"mysql+{self.engine_str}://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}",
-            pool_pre_ping=True, future=True)
+            pool_pre_ping=True, future=True, echo=True)
         # TODO:[-] 23-03-03 通过 scoped_session 来提供现成安全的全局session
         # 参考: https://juejin.cn/post/6844904164141580302
         self._session_def = scoped_session(sessionmaker(bind=self.engine))

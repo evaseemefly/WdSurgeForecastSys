@@ -1,36 +1,12 @@
-from typing import List
-from typing import Optional
-from sqlalchemy import ForeignKey
-from sqlalchemy import String
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
-from sqlalchemy import ForeignKey, Sequence, MetaData
 from sqlalchemy.orm import mapped_column, DeclarativeBase
 from datetime import datetime
 from arrow import Arrow
-from core.db import DbFactory
 
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX
 
-from common.enums import TaskTypeEnum
-
-
-class BaseMeta(DeclarativeBase):
-    pass
-
-
-class IIdModel(BaseMeta):
-    __abstract__ = True
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-
-class IDel(BaseMeta):
-    """
-        软删除 抽象父类
-    """
-    __abstract__ = True
-    is_del: Mapped[int] = mapped_column(nullable=False, default=0)
+from model.base_model import BaseMeta, IIdModel, IDel
 
 
 class IForecastTime(BaseMeta):
@@ -51,7 +27,7 @@ class IStationSurge(BaseMeta):
     surge: Mapped[float] = mapped_column(default=DEFAULT_SURGE)
 
 
-class StationForecastRealData(IIdModel, IDel, IForecastTime, IIssueTime, IStationSurge):
+class StationForecastRealDataModel(IIdModel, IDel, IForecastTime, IIssueTime, IStationSurge):
     """
         海洋预报数据
     """
@@ -61,7 +37,8 @@ class StationForecastRealData(IIdModel, IDel, IForecastTime, IIssueTime, IStatio
     def get_split_tab_name(cls, dt_arrow: Arrow) -> str:
         """
             + 获取动态分表后的表名
-        @param dt_arrow: 时间
+            按照 issue_dt 进行分表
+        @param dt_arrow: 时间 产品 issue_dt 时间
         @return:
         """
 
@@ -73,7 +50,8 @@ class StationForecastRealData(IIdModel, IDel, IForecastTime, IIssueTime, IStatio
     def set_split_tab_name(cls, dt_arrow: Arrow):
         """
             + 根据动态分表规则动态分表
-        @param dt_arrow:
+            按照 issue_dt 进行分表
+        @param dt_arrow: 时间 产品 issue_dt 时间
         @return:
         """
         tab_name: str = cls.get_split_tab_name(dt_arrow)
