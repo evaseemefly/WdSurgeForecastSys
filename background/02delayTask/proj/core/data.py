@@ -10,6 +10,8 @@ from core.db import DbFactory
 from core.files import StationRealDataFile
 from conf.settings import DOWNLOAD_OPTIONS
 from model.station import StationForecastRealDataModel
+from util.decorators import decorator_job
+from common.enums import JobStepsEnum
 
 
 class IFileInfo:
@@ -55,7 +57,8 @@ class StationRealData(IFileInfo):
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
         return forecast_dt
 
-    def download(self, dir_path: str, copy_dir_path: str) -> StationRealDataFile:
+    @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
+    def download(self, dir_path: str, copy_dir_path: str, key: int) -> StationRealDataFile:
         """
             根据 self.now 进行文件下载
         @param dir_path: 原始路径
@@ -85,7 +88,8 @@ class StationRealData(IFileInfo):
         file_name: str = f'NMF_TRN_OSTZSS_CSDT_{date_str}_168h_SS_staSurge.txt'
         return file_name
 
-    def to_db(self, station_file: StationRealDataFile):
+    @decorator_job(JobStepsEnum.STORE_DB_STATION)
+    def to_db(self, station_file: StationRealDataFile, key: int):
         """
             持久化保存
             将 station_file 中的站点潮位数据写入 db

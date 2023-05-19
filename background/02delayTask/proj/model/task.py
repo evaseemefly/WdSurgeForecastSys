@@ -15,7 +15,6 @@ from core.db import DbFactory
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX, DEFAULT_ENUM
 
-from common.enums import TaskTypeEnum
 from model.base_model import BaseMeta, IIdModel, IDel, IModel
 
 engine = DbFactory().engine
@@ -41,21 +40,22 @@ class TaskInfo(IIdModel, IDel, IModel):
     #  任务状态 SUCCESS|FAIL|DISCONNECT
     #          成功|失败|断开连接
     task_status: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
+    timestamp: Mapped[int] = mapped_column()
     # 任务种类
     # JOB_STATION
     # JOB_COVERAGE
     task_type: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
     task_result: Mapped[str] = mapped_column(String(50), nullable=True)
-    __tablename__ = 'task_info'
+    __tablename__ = 'task_infos'
 
 
 class TaskJobResult(IIdModel, IDel, IModel, ITask):
     """
         任务结果表（task_results）
     """
-    task_status: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
+    # task_status: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
     job_step: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
-    __tablename__ = 'task_job'
+    __tablename__ = 'task_jobs'
 
 
 class TaskLogs(IIdModel, IDel, IModel, ITask):
@@ -63,6 +63,7 @@ class TaskLogs(IIdModel, IDel, IModel, ITask):
         任务日志
     """
     log_level: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
+    log_content: Mapped[str] = mapped_column(String(1000))
     __tablename__ = 'task_logs'
 
 
