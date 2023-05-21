@@ -29,7 +29,7 @@ class StationRealDataCase:
         now_utc: arrow.Arrow = arrow.utcnow()
         remote_root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
         local_root_path: str = DOWNLOAD_OPTIONS.get('local_root_path')
-        self.step_download(remote_root_path, local_root_path)
+        self.step_download(remote_root_path=remote_root_path, local_root_path=local_root_path, key=key)
         self.step_to_db()
 
 

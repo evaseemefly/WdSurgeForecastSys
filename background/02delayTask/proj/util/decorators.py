@@ -4,7 +4,7 @@ import functools
 import arrow
 
 from common.enums import TaskStatusEnum, TaskTypeEnum, JobStepsEnum, LogLevelEnum
-from core.task import TaskInfo, TaskJob
+from core.task import TaskInfo, TaskJob, TaskFile
 
 
 def timer_count(num: int):

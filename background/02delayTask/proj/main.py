@@ -5,6 +5,8 @@
 from core.db import DbFactory
 from model.base_model import BaseMeta
 from model.task import to_migrate
+import model.task as tk
+import model.station as st
 
 
 def to_create_db():
@@ -14,7 +16,8 @@ def to_create_db():
     """
     # engine = DbFactory().engine
     # BaseMeta.metadata.create_all(bind=engine)
-    to_migrate()
+    # tk.to_migrate()
+    st.to_migrate()
     pass
 
 

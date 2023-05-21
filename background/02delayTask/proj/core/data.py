@@ -1,7 +1,11 @@
 import abc
 import pathlib
-
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy import ForeignKey, Sequence, MetaData, Table
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, text
+from sqlalchemy.dialects.mysql import DATETIME, INTEGER, TINYINT, VARCHAR
 from arrow import Arrow
+import arrow
 import shutil
 
 from pandas import Series
@@ -9,6 +13,7 @@ from pandas import Series
 from core.db import DbFactory
 from core.files import StationRealDataFile
 from conf.settings import DOWNLOAD_OPTIONS
+from core.task import TaskFile
 from model.station import StationForecastRealDataModel
 from util.decorators import decorator_job
 from common.enums import JobStepsEnum
@@ -73,6 +78,10 @@ class StationRealData(IFileInfo):
         copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
         copy_full_path: str = str(pathlib.Path(copy_path) / file_name_str)
         shutil.copy(source_full_path, copy_full_path)
+        task_file = TaskFile(copy_path, file_name_str, key)
+        self.session.add(task_file)
+        self.session.commit()
+        self.session.close()
         return StationRealDataFile(copy_path, file_name_str)
 
     def __get_nearly_station_surge_list(self):
@@ -81,6 +90,48 @@ class StationRealData(IFileInfo):
         :return:
         """
         # file_name: NMF_TRN_OSTZSS_CSDT_2023051612_168h_SS_staSurge.txt
+
+    def __check_exist_tab(self, tab_name: str) -> bool:
+        """
+            判断指定表是否存在
+        @param tab_name:
+        @return:
+        """
+        is_exist = False
+        auto_base = automap_base()
+        db_factory = DbFactory()
+        session = db_factory.Session
+        engine = db_factory.engine
+        auto_base.prepare(engine, reflect=True)
+        list_tabs = auto_base.classes
+        if tab_name in list_tabs:
+            is_exist = True
+        return is_exist
+
+    def __create_realdata_tab(self, tab_name: str) -> bool:
+        is_ok = False
+        meta_data = MetaData()
+        now_utc: Arrow = arrow.utcnow()
+        Table(tab_name, meta_data, Column('id', Integer, primary_key=True),
+              Column('is_del', TINYINT(1), nullable=False, server_default=text("'0'"), default=0),
+              Column('station_code', VARCHAR(200), nullable=False, index=True),
+              Column('surge', Float, nullable=False),
+              Column('forecast_ts', Integer, nullable=False, default=now_utc.int_timestamp),
+              Column('issue_ts', Integer, nullable=False, default=now_utc.int_timestamp),
+              Column('forecast_dt', DATETIME(fsp=6), default=now_utc.datetime),
+              Column('issue_dt', DATETIME(fsp=6), default=now_utc.datetime))
+        db_factory = DbFactory()
+        session = db_factory.Session
+        engine = db_factory.engine
+        with engine.connect() as conn:
+            # result_proxy = conn.execute(sql_str)
+            # result = result_proxy.fetchall()
+            try:
+                meta_data.create_all(engine)
+                is_ok = True
+            except Exception as ex:
+                print(ex.args)
+        return is_ok
 
     def get_file_name(self):
         forecast_dt: Arrow = self.get_nearly_forecast_dt()
