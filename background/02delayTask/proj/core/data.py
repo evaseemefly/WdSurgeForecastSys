@@ -45,12 +45,15 @@ class StationRealData(IFileInfo):
                         12Z          23-8=15 01-15
         :return:
         """
+        # 2023-05-22T07:58:43.111279+00:00
+        # 对应的本地时间为 2023-05-22T15:58:43.111279
         now_utc: Arrow = self.now
         stamp_hour = self.now.time().hour
         forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
         # 判断是 00Z 还是 12Z
         # local time : [9,23)
         if stamp_hour >= 1 and stamp_hour < 15:
+            now_utc = now_utc.shift(days=-1)
             # [1,15]
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
         # local time : [23,9)
@@ -145,6 +148,7 @@ class StationRealData(IFileInfo):
             持久化保存
             将 station_file 中的站点潮位数据写入 db
         @param station_file:
+        @param key: * 必填参数，装饰器更新 task job 使用
         @return:
         """
         dict_station_list: dict[str, Series] = station_file.get_station_realdata_list()
@@ -153,8 +157,12 @@ class StationRealData(IFileInfo):
             temp_code: str = temp_key
             surge_list: Series = dict_station_list[temp_code]
             StationForecastRealDataModel.set_split_tab_name(self.get_nearly_forecast_dt())
+            if self.__check_exist_tab(tab_name) == False:
+                self.__create_realdata_tab(tab_name)
             for index, temp_surge in enumerate(surge_list):
                 temp_dt: Arrow = temp_forecast_start_dt.shift(hours=index)
+                # 判断分表名称
+                tab_name: str = StationForecastRealDataModel.get_split_tab_name(temp_dt)
                 temp_station_model: StationForecastRealDataModel = StationForecastRealDataModel(surge=temp_surge,
                                                                                                 station_code=temp_code,
                                                                                                 forecast_dt=temp_dt.datetime,
@@ -162,6 +170,7 @@ class StationRealData(IFileInfo):
                                                                                                 issue_dt=self.get_nearly_forecast_dt().datetime,
                                                                                                 issue_ts=self.get_nearly_forecast_dt().int_timestamp
                                                                                                 )
+
                 self.session.add(temp_station_model)
             self.session.commit()
             self.session.close()

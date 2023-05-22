@@ -1,6 +1,6 @@
 import abc
 import typing
-from typing import List
+from typing import List, Dict
 from abc import ABCMeta, abstractmethod, abstractproperty
 from arrow import Arrow
 import arrow
@@ -87,7 +87,7 @@ class StationRealDataFile(IBaseFile):
             return True
         return False
 
-    def get_station_realdata_list(self) -> dict[str, Series]:
+    def get_station_realdata_list(self) -> Dict[str, Series]:
         """
             获取 code:series 字典
         :return:

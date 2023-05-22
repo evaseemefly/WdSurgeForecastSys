@@ -4,7 +4,7 @@ import functools
 import arrow
 
 from common.enums import TaskStatusEnum, TaskTypeEnum, JobStepsEnum, LogLevelEnum
-from core.task import TaskInfo, TaskJob, TaskFile
+from core.task import TaskInfoModel, TaskJob, TaskFile, TaskInfo
 
 
 def timer_count(num: int):
@@ -34,30 +34,28 @@ def decorator_task(task_name: str, task_type: TaskTypeEnum):
     @return:
     """
 
-    def decorate(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # utc_now: arrow.Arrow = arrow.utcnow()
-            key: int = kwargs.get('key')
-            task = TaskInfo(task_name, key)
-            task.add(TaskStatusEnum.RUNNING)
-            res = func(*args, **kwargs)
-            task.update(TaskStatusEnum.SUCCESS)
-            return res
+    @wrapt.decorator
+    def wrapper(wrapped, instance, args, kwargs):
+        # old_time = time.time()
+        key: int = kwargs.get('key')
+        task = TaskInfo(task_name, key)
+        task.add(TaskStatusEnum.RUNNING)
+        res = wrapped(*args, **kwargs)
+        task.update(TaskStatusEnum.SUCCESS)
+        # new_time = time.time()
+        # print(f'执行func:{wrapped},耗时{new_time - old_time}')
+        return res
 
-    return decorate
+    return wrapper
 
 
 def decorator_job(job_step: JobStepsEnum):
-    def decorate(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # utc_now: arrow.Arrow = arrow.utcnow()
-            # timestamp: int = kwargs.get('timestamp')
-            key: int = kwargs.get('key')
-            task = TaskJob(key)
-            res = func(*args, **kwargs)
-            task.add(job_step)
-            return res
+    @wrapt.decorator
+    def wrapper(wrapped, instance, args, kwargs):
+        key: int = kwargs.get('key')
+        task = TaskJob(key)
+        res = wrapped(*args, **kwargs)
+        task.add(job_step)
+        return res
 
-    return decorate
+    return wrapper

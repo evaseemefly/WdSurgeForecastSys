@@ -13,7 +13,8 @@ from arrow import Arrow
 from core.db import DbFactory
 
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
-    UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX, DEFAULT_ENUM
+    UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX, DEFAULT_ENUM, \
+    DEFAULT_FK_STR
 
 from model.base_model import BaseMeta, IIdModel, IDel, IModel
 
@@ -28,10 +29,10 @@ class ITask(BaseMeta):
     """
     __abstract__ = True
     # 关联任务 id
-    task_id: Mapped[int] = mapped_column(default=NONE_ID)
+    task_id: Mapped[str] = mapped_column(String(8), default=DEFAULT_FK_STR)
 
 
-class TaskInfo(IIdModel, IDel, IModel):
+class TaskInfoModel(IIdModel, IDel, IModel):
     """
         任务表（tasks）
     """

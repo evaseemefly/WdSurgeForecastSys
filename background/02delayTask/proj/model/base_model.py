@@ -1,7 +1,10 @@
 from datetime import datetime
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column, DeclarativeBase
 from sqlalchemy.ext.declarative import declarative_base
+
+from common.default import DEFAULT_FK_STR
 
 BaseMeta = declarative_base()
 
@@ -12,7 +15,7 @@ BaseMeta = declarative_base()
 
 class IIdModel(BaseMeta):
     __abstract__ = True
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[str] = mapped_column(String(8), primary_key=True, default=DEFAULT_FK_STR)
 
 
 class IDel(BaseMeta):

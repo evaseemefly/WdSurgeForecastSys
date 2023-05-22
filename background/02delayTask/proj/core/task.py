@@ -1,11 +1,11 @@
 # 任务相关模块
 import arrow
 from sqlalchemy import select, update
-from model.task import TaskInfo, TaskLogs, TaskFiles, TaskJobResult
+from model.task import TaskInfoModel, TaskLogs, TaskFiles, TaskJobResult
 from common.enums import TaskStatusEnum, TaskTypeEnum, JobStepsEnum, LogLevelEnum
 from common.default import NONE_ID
 from core.db import DbFactory
-from model.task import TaskInfo
+from model.task import TaskInfoModel
 
 
 class TaskInfo:
@@ -32,9 +32,10 @@ class TaskInfo:
         @param task_status:
         @return:
         """
-        task_info = TaskInfo(id=self.key, task_name=self.task_name, timestamp=self.timestamp, task_status=task_status,
-                             task_type=task_status,
-                             task_result=task_result)
+        task_info = TaskInfoModel(id=self.key, task_name=self.task_name, timestamp=self.timestamp,
+                                  task_status=task_status.value,
+                                  task_type=task_status.value,
+                                  task_result=task_result)
 
         self.session.add(task_info)
         self.session.commit()
@@ -48,9 +49,9 @@ class TaskInfo:
         @return:
         """
         if self.task_id != NONE_ID:
-            stmt = update(TaskInfo).where(TaskInfo.task_id == self.task_id).values(task_status=task_status,
-                                                                                   task_result=task_result,
-                                                                                   gmt_modify_time=arrow.utcnow())
+            stmt = update(TaskInfoModel).where(TaskInfoModel.task_id == self.task_id).values(task_status=task_status,
+                                                                                             task_result=task_result,
+                                                                                             gmt_modify_time=arrow.utcnow())
             self.session.execute(stmt)
 
     def __set_task_id(self, id: int):
