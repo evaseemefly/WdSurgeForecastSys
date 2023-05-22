@@ -7,6 +7,7 @@ from sqlalchemy.dialects.mysql import DATETIME, INTEGER, TINYINT, VARCHAR
 from arrow import Arrow
 import arrow
 import shutil
+from typing import Optional
 
 from pandas import Series
 
@@ -66,7 +67,7 @@ class StationRealData(IFileInfo):
         return forecast_dt
 
     @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
-    def download(self, dir_path: str, copy_dir_path: str, key: int) -> StationRealDataFile:
+    def download(self, dir_path: str, copy_dir_path: str, key: int) -> Optional[StationRealDataFile]:
         """
             根据 self.now 进行文件下载
         @param dir_path: 原始路径
@@ -80,12 +81,24 @@ class StationRealData(IFileInfo):
         source_full_path: str = str(pathlib.Path(dir_path) / file_name_str)
         copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
         copy_full_path: str = str(pathlib.Path(copy_path) / file_name_str)
-        shutil.copy(source_full_path, copy_full_path)
-        task_file = TaskFile(copy_path, file_name_str, key)
-        self.session.add(task_file)
-        self.session.commit()
-        self.session.close()
-        return StationRealDataFile(copy_path, file_name_str)
+        # TODO:[*] 23-05-22 加入判断
+
+        if pathlib.Path(source_full_path).is_file():
+            if pathlib.Path(copy_path).exists():
+                pass
+            else:
+                pathlib.Path(copy_path).mkdir(parents=True, exist_ok=False)
+            shutil.copyfile(source_full_path, copy_full_path)
+            task_file = TaskFile(copy_path, file_name_str, key)
+            # TODO:[*] 23-05-22
+            # sqlalchemy.exc.IntegrityError: (MySQLdb._exceptions.IntegrityError) (1062, "Duplicate entry '-1' for key 'PRIMARY'")
+            # [SQL: INSERT INTO task_files (file_name, relative_path, id, is_del, gmt_create_time, gmt_modify_time, task_id) VALUES (%s, %s, %s, %s, %s, %s, %s)]
+            # [parameters: ('NMF_TRN_OSTZSS_CSDT_2023052112_168h_SS_staSurge.txt', 'D:\\05DATA\\NGINX_PATH\\TIDE\\local/2023/05', -1, 0, datetime.datetime(2023, 5, 22, 12, 54, 56, 896541), datetime.datetime(2023, 5, 22, 12, 54, 56, 896541), '1b51de5c')]
+            # (Background on this error at: https://sqlalche.me/e/20/gkpj)
+            task_file.add()
+            return StationRealDataFile(copy_path, file_name_str)
+        else:
+            return None
 
     def __get_nearly_station_surge_list(self):
         """

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column, DeclarativeBase
 from sqlalchemy.ext.declarative import declarative_base
 
-from common.default import DEFAULT_FK_STR
+from common.default import DEFAULT_FK_STR, NONE_ID
 
 BaseMeta = declarative_base()
 
@@ -13,7 +13,15 @@ BaseMeta = declarative_base()
 #     pass
 
 
-class IIdModel(BaseMeta):
+class IIdIntModel(BaseMeta):
+    __abstract__ = True
+    # id: Mapped[int] = mapped_column(primary_key=True, default=NONE_ID)
+    # TODO:[-] 23-05-22 对于int类型主键，不需要设置默认值
+    # autoincrement 自增字段
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+
+class IIdStrModel(BaseMeta):
     __abstract__ = True
     id: Mapped[str] = mapped_column(String(8), primary_key=True, default=DEFAULT_FK_STR)
 

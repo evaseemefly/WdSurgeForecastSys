@@ -18,7 +18,7 @@ def to_create_db():
     """
     # engine = DbFactory().engine
     # BaseMeta.metadata.create_all(bind=engine)
-    # tk.to_migrate()
+    tk.to_migrate()
     # st.to_migrate()
     pass
 

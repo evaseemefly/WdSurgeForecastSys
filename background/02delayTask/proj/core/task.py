@@ -51,7 +51,7 @@ class TaskInfo:
         if self.task_id != NONE_ID:
             stmt = update(TaskInfoModel).where(TaskInfoModel.task_id == self.task_id).values(task_status=task_status,
                                                                                              task_result=task_result,
-                                                                                             gmt_modify_time=arrow.utcnow())
+                                                                                             gmt_modify_time=arrow.utcnow().datetime)
             self.session.execute(stmt)
 
     def __set_task_id(self, id: int):
@@ -90,7 +90,7 @@ class TaskJob:
         pass
 
     def add(self, job_step: JobStepsEnum):
-        job: TaskJobResult = TaskJobResult(task_id=self.task_id, job_step=job_step)
+        job: TaskJobResult = TaskJobResult(task_id=self.task_id, job_step=job_step.value)
         self.session.add(job)
         self.session.commit()
         self.session.close()

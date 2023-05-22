@@ -8,7 +8,7 @@ from core.db import DbFactory
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX
 
-from model.base_model import BaseMeta, IIdModel, IDel
+from model.base_model import BaseMeta, IIdIntModel, IDel
 
 engine = DbFactory().engine
 # md = MetaData(bind=engine)  # 引用MetaData
@@ -33,7 +33,7 @@ class IStationSurge(BaseMeta):
     surge: Mapped[float] = mapped_column(default=DEFAULT_SURGE)
 
 
-class StationForecastRealDataModel(IIdModel, IDel, IForecastTime, IIssueTime, IStationSurge):
+class StationForecastRealDataModel(IIdIntModel, IDel, IForecastTime, IIssueTime, IStationSurge):
     """
         海洋预报数据
     """

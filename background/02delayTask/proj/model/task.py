@@ -16,7 +16,7 @@ from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFA
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX, DEFAULT_ENUM, \
     DEFAULT_FK_STR
 
-from model.base_model import BaseMeta, IIdModel, IDel, IModel
+from model.base_model import BaseMeta, IIdStrModel, IIdIntModel, IDel, IModel
 
 engine = DbFactory().engine
 # md = MetaData(bind=engine)  # 引用MetaData
@@ -32,7 +32,7 @@ class ITask(BaseMeta):
     task_id: Mapped[str] = mapped_column(String(8), default=DEFAULT_FK_STR)
 
 
-class TaskInfoModel(IIdModel, IDel, IModel):
+class TaskInfoModel(IIdStrModel, IDel, IModel):
     """
         任务表（tasks）
     """
@@ -50,7 +50,7 @@ class TaskInfoModel(IIdModel, IDel, IModel):
     __tablename__ = 'task_infos'
 
 
-class TaskJobResult(IIdModel, IDel, IModel, ITask):
+class TaskJobResult(IIdIntModel, IDel, IModel, ITask):
     """
         任务结果表（task_results）
     """
@@ -59,7 +59,7 @@ class TaskJobResult(IIdModel, IDel, IModel, ITask):
     __tablename__ = 'task_jobs'
 
 
-class TaskLogs(IIdModel, IDel, IModel, ITask):
+class TaskLogs(IIdIntModel, IDel, IModel, ITask):
     """
         任务日志
     """
@@ -68,7 +68,7 @@ class TaskLogs(IIdModel, IDel, IModel, ITask):
     __tablename__ = 'task_logs'
 
 
-class TaskFiles(IIdModel, IDel, IModel, ITask):
+class TaskFiles(IIdIntModel, IDel, IModel, ITask):
     """
         任务日志
     """
