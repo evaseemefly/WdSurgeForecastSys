@@ -5,8 +5,8 @@ DATABASES = {
         'NAME': 'wd_forecast_db',  # 数据库名
         'USER': 'root',  # 账号
         'PASSWORD': '123456',
-        'HOST': 'localhost',  # HOST
-        # 'HOST': 'host.docker.internal',  # docker 宿主机
+        # 'HOST': 'localhost',  # HOST
+        'HOST': 'host.docker.internal',  # docker 宿主机
         'POST': 3306,  # 端口
         'OPTIONS': {
             "init_command": "SET foreign_key_checks = 0;",
@@ -25,10 +25,11 @@ DATABASES = {
 # 下载配置文件
 DOWNLOAD_OPTIONS = {
     # 挂载映射盘路径
-    # 'remote_root_path': r'/data/remote/wd_surge/2023',
-    'remote_root_path': r'D:\05DATA\NGINX_PATH\TIDE\remote',
+    'remote_root_path': r'/data/remote',
+    # 'remote_root_path': r'D:\05DATA\NGINX_PATH\TIDE\remote',
     # 本地下载根目录
-    'local_root_path': r'D:\05DATA\NGINX_PATH\TIDE\local'
+    # 'local_root_path': r'D:\05DATA\NGINX_PATH\TIDE\local'
+    'local_root_path': r'/data/local'
 }
 
 TASK_OPTIONS = {

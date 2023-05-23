@@ -7,6 +7,7 @@ from core.db import DbFactory
 from model.base_model import BaseMeta
 from model.task import to_migrate
 import model.task as tk
+from common.comm_dicts import station_code_dicts
 from core.case import StationRealDataCase, case_station_forecast_realdata
 import model.station as st
 
@@ -25,6 +26,9 @@ def to_create_db():
 
 def test_station_realdata():
     case_station_forecast_realdata()
+
+
+# def get_no_exist_staiton_code():
 
 
 # 按间距中的绿色按钮以运行脚本。

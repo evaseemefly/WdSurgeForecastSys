@@ -7,7 +7,7 @@ from sqlalchemy.dialects.mysql import DATETIME, INTEGER, TINYINT, VARCHAR
 from arrow import Arrow
 import arrow
 import shutil
-from typing import Optional
+from typing import Optional, List
 
 from pandas import Series
 
@@ -18,6 +18,7 @@ from core.task import TaskFile
 from model.station import StationForecastRealDataModel
 from util.decorators import decorator_job
 from common.enums import JobStepsEnum
+from common.comm_dicts import station_code_dicts
 
 
 class IFileInfo:
@@ -82,7 +83,9 @@ class StationRealData(IFileInfo):
         copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
         copy_full_path: str = str(pathlib.Path(copy_path) / file_name_str)
         # TODO:[*] 23-05-22 加入判断
-
+        # '/data/remote/NMF_TRN_OSTZSS_CSDT_2023052212_168h_SS_staSurge.txt'
+        # NMF_TRN_OSTZSS_CSDT_2023052212_168h_SS_staSurge.txt
+        # NMF_TRN_OSTZSS_CSDT_2023052112_168h_SS_staSurge.txt
         if pathlib.Path(source_full_path).is_file():
             if pathlib.Path(copy_path).exists():
                 pass
@@ -132,6 +135,7 @@ class StationRealData(IFileInfo):
               Column('is_del', TINYINT(1), nullable=False, server_default=text("'0'"), default=0),
               Column('station_code', VARCHAR(200), nullable=False, index=True),
               Column('surge', Float, nullable=False),
+              Column('task_id', VARCHAR(8), nullable=False, index=True),
               Column('forecast_ts', Integer, nullable=False, default=now_utc.int_timestamp),
               Column('issue_ts', Integer, nullable=False, default=now_utc.int_timestamp),
               Column('forecast_dt', DATETIME(fsp=6), default=now_utc.datetime),
@@ -165,23 +169,26 @@ class StationRealData(IFileInfo):
         @return:
         """
         dict_station_list: dict[str, Series] = station_file.get_station_realdata_list()
+
         for temp_key in dict_station_list:
             temp_forecast_start_dt: Arrow = station_file.forecast_dt_start
             temp_code: str = temp_key
             surge_list: Series = dict_station_list[temp_code]
             StationForecastRealDataModel.set_split_tab_name(self.get_nearly_forecast_dt())
+            # 判断分表名称
+            tab_name: str = StationForecastRealDataModel.get_split_tab_name(self.get_nearly_forecast_dt())
             if self.__check_exist_tab(tab_name) == False:
                 self.__create_realdata_tab(tab_name)
             for index, temp_surge in enumerate(surge_list):
                 temp_dt: Arrow = temp_forecast_start_dt.shift(hours=index)
-                # 判断分表名称
-                tab_name: str = StationForecastRealDataModel.get_split_tab_name(temp_dt)
+
                 temp_station_model: StationForecastRealDataModel = StationForecastRealDataModel(surge=temp_surge,
                                                                                                 station_code=temp_code,
                                                                                                 forecast_dt=temp_dt.datetime,
                                                                                                 forecast_ts=temp_dt.int_timestamp,
                                                                                                 issue_dt=self.get_nearly_forecast_dt().datetime,
-                                                                                                issue_ts=self.get_nearly_forecast_dt().int_timestamp
+                                                                                                issue_ts=self.get_nearly_forecast_dt().int_timestamp,
+                                                                                                task_id=key
                                                                                                 )
 
                 self.session.add(temp_station_model)

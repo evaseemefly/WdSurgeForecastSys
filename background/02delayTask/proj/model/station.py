@@ -9,6 +9,7 @@ from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFA
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX
 
 from model.base_model import BaseMeta, IIdIntModel, IDel
+from model.task import ITask
 
 engine = DbFactory().engine
 # md = MetaData(bind=engine)  # 引用MetaData
@@ -33,11 +34,11 @@ class IStationSurge(BaseMeta):
     surge: Mapped[float] = mapped_column(default=DEFAULT_SURGE)
 
 
-class StationForecastRealDataModel(IIdIntModel, IDel, IForecastTime, IIssueTime, IStationSurge):
+class StationForecastRealDataModel(IIdIntModel, IDel, IForecastTime, IIssueTime, IStationSurge, ITask):
     """
         海洋预报数据
     """
-    table_name_base = 'station_realdata_'
+    table_name_base = 'station_realdata'
     __tablename__ = 'station_realdata_template'
 
     @classmethod
@@ -49,7 +50,7 @@ class StationForecastRealDataModel(IIdIntModel, IDel, IForecastTime, IIssueTime,
         @return:
         """
 
-        tab_dt_name: str = dt_arrow.format('yyyy')
+        tab_dt_name: str = dt_arrow.format('YYYY')
         tab_name: str = f'{cls.table_name_base}_{tab_dt_name}'
         return tab_name
 

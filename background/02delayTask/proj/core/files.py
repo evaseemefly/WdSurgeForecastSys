@@ -73,7 +73,7 @@ class StationRealDataFile(IBaseFile):
         """
         arrow_start: Arrow = DEFAULT_ARROW
         if len(self.name_split) > 4:
-            arrow_start = arrow.get(self.name_split[4], 'YYYYMMDDHH')
+            arrow_start = arrow.get(self.name_split[3], 'YYYYMMDDHH')
             pass
         return arrow_start
 
@@ -98,8 +98,22 @@ class StationRealDataFile(IBaseFile):
                 df: DataFrame = pd.read_table(f, encoding='gbk', sep='\s+',
                                               header=0, infer_datetime_format=False)
                 columns = df.columns
+                # TODO:[*] 23-05-23 缺少的站点
+                # ['歧口', '孤东', '芝罘岛', '乳山口', '滨海', '外磕角', '滩浒岛', '沙埕', '崇武', '汕头H', '赤湾', '白龙尾']
+                # 已修改数据库的站点:
+                # ['赤湾','滩浒岛]
+                # 目前仍缺失的站点
+                # ['歧口', '孤东', '芝罘岛', '乳山口', '滨海', '外磕角', '沙埕', '崇武', '汕头H',  '白龙尾']
                 for temp_row in columns:
                     temp_code = station_code_dicts.get(temp_row)
-                    dict_station[temp_code] = df[temp_code]
+                    if temp_code is None:
+                        continue
+                    else:
+                        dict_station[temp_code] = df[temp_row]
+                # no_exist_codes: List[str] = []
+                # for temp_key in columns:
+                #     name = station_code_dicts.get(temp_key)
+                #     if name is None:
+                #         no_exist_codes.append(temp_key)
             pass
         return dict_station

@@ -49,9 +49,9 @@ class TaskInfo:
         @return:
         """
         if self.task_id != NONE_ID:
-            stmt = update(TaskInfoModel).where(TaskInfoModel.task_id == self.task_id).values(task_status=task_status,
-                                                                                             task_result=task_result,
-                                                                                             gmt_modify_time=arrow.utcnow().datetime)
+            stmt = update(TaskInfoModel).where(TaskInfoModel.id == self.task_id).values(task_status=task_status.value,
+                                                                                        task_result=task_result,
+                                                                                        gmt_modify_time=arrow.utcnow().datetime)
             self.session.execute(stmt)
 
     def __set_task_id(self, id: int):
