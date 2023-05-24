@@ -10,13 +10,17 @@ import shutil
 from typing import Optional, List
 
 from pandas import Series
+import pandas as pd
+import numpy as np
+import xarray as xr
 
 from core.db import DbFactory
-from core.files import StationRealDataFile
+from core.files import StationRealDataFile, CoverageFile
 from conf.settings import DOWNLOAD_OPTIONS
 from core.task import TaskFile
 from model.station import StationForecastRealDataModel
 from util.decorators import decorator_job
+from util.util import get_relative_path
 from common.enums import JobStepsEnum
 from common.comm_dicts import station_code_dicts
 
@@ -194,4 +198,109 @@ class StationRealData(IFileInfo):
                 self.session.add(temp_station_model)
             self.session.commit()
             self.session.close()
+            pass
+
+
+class CoverageData(IFileInfo):
+    def __init__(self, now: Arrow):
+        self.now: Arrow = now
+        self.session = DbFactory().Session
+
+    def get_nearly_forecast_dt(self) -> Arrow:
+        """
+            预报文件生成的时间
+                预报时间: 00Z  发布时间 09-8=01 15-01
+                        12Z          23-8=15 01-15
+            此部分与 StationRealData 中重复
+        :return:
+        """
+        # 2023-05-22T07:58:43.111279+00:00
+        # 对应的本地时间为 2023-05-22T15:58:43.111279
+        now_utc: Arrow = self.now
+        stamp_hour = self.now.time().hour
+        forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
+        # 判断是 00Z 还是 12Z
+        # local time : [9,23)
+        if stamp_hour >= 1 and stamp_hour < 15:
+            now_utc = now_utc.shift(days=-1)
+            # [1,15]
+            forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
+        # local time : [23,9)
+        elif stamp_hour >= 15:
+            forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
+        # lcoal time: [8,9)
+        elif stamp_hour < 1:
+            now_utc = now_utc.shift(hours=-1)
+            forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
+        return forecast_dt
+
+    @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
+    def download(self, dir_path: str, copy_dir_path: str, key: int) -> Optional[StationRealDataFile]:
+        """
+            根据 self.now 进行文件下载
+        @param dir_path: 原始路径
+        @param copy_dir_path: 存储路径
+        @return: StationRealDataFile 海洋站预报潮位文件
+        """
+
+        now_year_str: str = self.now.format('YYYY')
+        now_month_str: str = self.now.format('MM')
+        file_name_str: str = self.get_file_name()
+        source_full_path: str = str(pathlib.Path(dir_path) / file_name_str)
+        copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
+        copy_full_path: str = str(pathlib.Path(copy_path) / file_name_str)
+        # TODO:[*] 23-05-22 加入判断
+        # '/data/remote/NMF_TRN_OSTZSS_CSDT_2023052212_168h_SS_staSurge.txt'
+        # NMF_TRN_OSTZSS_CSDT_2023052212_168h_SS_staSurge.txt
+        # NMF_TRN_OSTZSS_CSDT_2023052112_168h_SS_staSurge.txt
+        if pathlib.Path(source_full_path).is_file():
+            if pathlib.Path(copy_path).exists():
+                pass
+            else:
+                pathlib.Path(copy_path).mkdir(parents=True, exist_ok=False)
+            shutil.copyfile(source_full_path, copy_full_path)
+            task_file = TaskFile(copy_path, file_name_str, key)
+            task_file.add()
+            return CoverageFile(copy_path, file_name_str)
+        else:
+            return None
+
+    def get_file_name(self):
+        forecast_dt: Arrow = self.get_nearly_forecast_dt()
+        date_str: str = forecast_dt.format("YYYYMMDDHH")
+        file_name: str = f'NMF_TRN_OSTZSS_CSDT_{date_str}_168h_SS_maxSurge.txt'
+        return file_name
+
+    def convert_2_coverage(self, dir_path: str):
+        root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
+        file_full_path: str = str(pathlib.Path(dir_path) / get_relative_path(
+            self.get_nearly_forecast_dt()) / self.get_file_name())
+
+        # 将 txt => nc
+        # step-1: 判断文件是否存在
+        if pathlib.Path(file_full_path).exists():
+            # step-2: 读取txt文件并加载至 DataFrame 中
+            with open(file_full_path, 'rb') as f:
+                # pandas.core.frame.DataFrame
+                data: pd.DataFrame = pd.read_csv(f, encoding='gbk', sep='\s+', header=None,
+                                                 infer_datetime_format=False)
+                # 此处需要加入对原矩阵的转置操作
+                data_T: pd.DataFrame = data.transpose()
+                # step-3: 生成经纬度集合
+                # 定义经纬度数组
+                # 注意经纬度网格的 长宽 无问题，但是范围有问题
+                # 220
+                lon = np.arange(105, 127, 0.1)
+                # 250
+                lat = np.arange(16, 41, 0.1)
+                # step-4: 创建当前定义的经纬度坐标系的新的DataFrame
+                da = xr.DataArray(data_T, coords=[lat, lon], dims=['lat', 'lon'])
+                # step-5: DataFrame => Dataset
+                ds = xr.Dataset({'max_surge': da})
+                # step-6: 对 lat 进行倒叙排列——[0,0] 位置的 lat是max
+                ds_sorted_y = ds.sortby('lat', ascending=False)
+                # step-7: 转存为新的 nc文件，并返回文件
+                ds_sorted_y.to_netcdf('max_surge.nc', format='NETCDF4', mode='w')
+            pass
+        else:
             pass

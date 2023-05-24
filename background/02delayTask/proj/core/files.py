@@ -48,6 +48,16 @@ class IBaseFile(metaclass=ABCMeta):
         file_full_path: str = str(pathlib.Path(self.dir_path) / self.file_name)
         return file_full_path
 
+    def _check_exist(self):
+        """
+            判断当前 file 是否存在
+        :return:
+        """
+        file_full_path: str = str(pathlib.Path(self.dir_path) / self.file_name)
+        if pathlib.Path(file_full_path).exists():
+            return True
+        return False
+
 
 class StationRealDataFile(IBaseFile):
     """
@@ -76,16 +86,6 @@ class StationRealDataFile(IBaseFile):
             arrow_start = arrow.get(self.name_split[3], 'YYYYMMDDHH')
             pass
         return arrow_start
-
-    def _check_exist(self):
-        """
-            判断当前 file 是否存在
-        :return:
-        """
-        file_full_path: str = str(pathlib.Path(self.dir_path) / self.file_name)
-        if pathlib.Path(file_full_path).exists():
-            return True
-        return False
 
     def get_station_realdata_list(self) -> Dict[str, Series]:
         """
@@ -117,3 +117,24 @@ class StationRealDataFile(IBaseFile):
                 #         no_exist_codes.append(temp_key)
             pass
         return dict_station
+
+
+class CoverageFile(IBaseFile):
+    """
+        NMF_TRN_OSTZSS_CSDT_2023052100_168h_SS_maxSurge.txt
+    """
+
+    @property
+    def forecast_dt_start(self) -> Arrow:
+        """
+            预报的起始时间(utc)
+            self.name_split[4] : 2023051612 -> arrow.Arrow
+        :return:
+        """
+        arrow_start: Arrow = DEFAULT_ARROW
+        if len(self.name_split) > 4:
+            arrow_start = arrow.get(self.name_split[3], 'YYYYMMDDHH')
+            pass
+        return arrow_start
+
+    pass

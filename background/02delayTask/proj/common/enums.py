@@ -36,3 +36,9 @@ class LogLevelEnum(Enum):
     INFO = 1302
     WARNING = 1303
     ERROR = 1304
+
+
+class CoverageTypeEnum(Enum):
+    SOURCE_COVERAGE_DOCUMENT = 2101
+    CONVERT_COVERAGE_FILE = 2102
+    CONVERT_TIF_FILE = 2103
