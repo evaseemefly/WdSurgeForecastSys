@@ -10,6 +10,7 @@ import model.task as tk
 from common.comm_dicts import station_code_dicts
 from core.case import StationRealDataCase, case_station_forecast_realdata
 import model.station as st
+import model.coverage as ci
 
 
 def to_create_db():
@@ -19,8 +20,9 @@ def to_create_db():
     """
     # engine = DbFactory().engine
     # BaseMeta.metadata.create_all(bind=engine)
-    tk.to_migrate()
+    # tk.to_migrate()
     # st.to_migrate()
+    ci.to_migrate()
     pass
 
 
@@ -33,7 +35,7 @@ def test_station_realdata():
 
 # 按间距中的绿色按钮以运行脚本。
 if __name__ == '__main__':
-    # to_create_db()
-    test_station_realdata()
+    to_create_db()
+    # test_station_realdata()
 
 # 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助
