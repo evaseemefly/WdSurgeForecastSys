@@ -334,8 +334,12 @@ class CoverageData(IFileInfo):
             return None
             pass
 
-    def convert_2_coverage(self, dir_path: str) -> Optional[CoverageFile]:
-        root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
+    def stand_2_dataset(self, dir_path: str) -> Optional[xr.Dataset]:
+        """
+            将 dir_path 为根目录根据当前的时间获取对应的文件并标准化后返回 Dataset
+        @param dir_path:
+        @return:
+        """
         relative_path: str = get_relative_path(
             self.get_nearly_forecast_dt())
         file_name_nc: str = self.get_file_name('nc')
@@ -375,15 +379,25 @@ class CoverageData(IFileInfo):
                 ds_sorted_y['lon'].attrs['standard_name'] = 'longitude'
                 # step-6-3: 定义crs
                 ds_sorted_y = ds_sorted_y.rio.write_crs("epsg:4326", inplace=True)
-                # step-7: 转存为新的 nc文件，并返回文件
-                nc_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
-                ds_sorted_y.to_netcdf(nc_full_path, format='NETCDF4', mode='w')
-                return CoverageFile(dir_path, relative_path, file_name_nc)
-
+                return ds_sorted_y
             pass
         else:
             return None
             pass
+
+    def convert_2_coverage(self, dir_path: str, ds: xr.Dataset) -> Optional[CoverageFile]:
+        root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
+        relative_path: str = get_relative_path(
+            self.get_nearly_forecast_dt())
+        file_name_nc: str = self.get_file_name('nc')
+        file_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
+        if ds is not None:
+            # step-7: 转存为新的 nc文件，并返回文件
+            nc_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
+            ds.to_netcdf(nc_full_path, format='NETCDF4', mode='w')
+            return CoverageFile(dir_path, relative_path, file_name_nc)
+        else:
+            return None
 
     def convert_2_tif(self, ds: xr.Dataset, nc_file: CoverageFile) -> CoverageFile:
         """
