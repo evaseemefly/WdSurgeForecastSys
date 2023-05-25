@@ -13,12 +13,14 @@ from pandas import Series
 import pandas as pd
 import numpy as np
 import xarray as xr
+import rioxarray
 
 from core.db import DbFactory
 from core.files import StationRealDataFile, CoverageFile
 from conf.settings import DOWNLOAD_OPTIONS
 from core.task import TaskFile
 from model.station import StationForecastRealDataModel
+from model.coverage import GeoCoverageFileModel
 from util.decorators import decorator_job
 from util.util import get_relative_path
 from common.enums import JobStepsEnum
@@ -85,6 +87,7 @@ class StationRealData(IFileInfo):
         file_name_str: str = self.get_file_name()
         source_full_path: str = str(pathlib.Path(dir_path) / file_name_str)
         copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
+        relative_path: str = f'{now_year_str}/{now_month_str}'
         copy_full_path: str = str(pathlib.Path(copy_path) / file_name_str)
         # TODO:[*] 23-05-22 加入判断
         # '/data/remote/NMF_TRN_OSTZSS_CSDT_2023052212_168h_SS_staSurge.txt'
@@ -103,7 +106,7 @@ class StationRealData(IFileInfo):
             # [parameters: ('NMF_TRN_OSTZSS_CSDT_2023052112_168h_SS_staSurge.txt', 'D:\\05DATA\\NGINX_PATH\\TIDE\\local/2023/05', -1, 0, datetime.datetime(2023, 5, 22, 12, 54, 56, 896541), datetime.datetime(2023, 5, 22, 12, 54, 56, 896541), '1b51de5c')]
             # (Background on this error at: https://sqlalche.me/e/20/gkpj)
             task_file.add()
-            return StationRealDataFile(copy_path, file_name_str)
+            return StationRealDataFile(copy_dir_path, relative_path, file_name_str)
         else:
             return None
 
@@ -202,6 +205,9 @@ class StationRealData(IFileInfo):
 
 
 class CoverageData(IFileInfo):
+    #
+    root_path: str = r''
+
     def __init__(self, now: Arrow):
         self.now: Arrow = now
         self.session = DbFactory().Session
@@ -235,7 +241,7 @@ class CoverageData(IFileInfo):
         return forecast_dt
 
     @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
-    def download(self, dir_path: str, copy_dir_path: str, key: int) -> Optional[StationRealDataFile]:
+    def download(self, dir_path: str, copy_dir_path: str, key: int) -> Optional[CoverageFile]:
         """
             根据 self.now 进行文件下载
         @param dir_path: 原始路径
@@ -245,9 +251,10 @@ class CoverageData(IFileInfo):
 
         now_year_str: str = self.now.format('YYYY')
         now_month_str: str = self.now.format('MM')
-        file_name_str: str = self.get_file_name()
+        file_name_str: str = self.get_file_name('txt')
         source_full_path: str = str(pathlib.Path(dir_path) / file_name_str)
         copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
+        relative_path: str = f'{now_year_str}/{now_month_str}'
         copy_full_path: str = str(pathlib.Path(copy_path) / file_name_str)
         # TODO:[*] 23-05-22 加入判断
         # '/data/remote/NMF_TRN_OSTZSS_CSDT_2023052212_168h_SS_staSurge.txt'
@@ -261,20 +268,27 @@ class CoverageData(IFileInfo):
             shutil.copyfile(source_full_path, copy_full_path)
             task_file = TaskFile(copy_path, file_name_str, key)
             task_file.add()
-            return CoverageFile(copy_path, file_name_str)
+            return CoverageFile(copy_path, get_relative_path(self.get_nearly_forecast_dt()), file_name_str)
         else:
             return None
 
-    def get_file_name(self):
+    def get_file_name(self, file_ext: str):
+        """
+            根据当前时间获取最近的预报时刻生成对应的文件名称
+        @param file_ext: 文件后缀
+        @return:
+        """
         forecast_dt: Arrow = self.get_nearly_forecast_dt()
         date_str: str = forecast_dt.format("YYYYMMDDHH")
-        file_name: str = f'NMF_TRN_OSTZSS_CSDT_{date_str}_168h_SS_maxSurge.txt'
+        file_name: str = f'NMF_TRN_OSTZSS_CSDT_{date_str}_168h_SS_maxSurge.{file_ext}'
         return file_name
 
-    def convert_2_coverage(self, dir_path: str):
+    def standard_ds(self, dir_path: str) -> xr.Dataset:
         root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
-        file_full_path: str = str(pathlib.Path(dir_path) / get_relative_path(
-            self.get_nearly_forecast_dt()) / self.get_file_name())
+        relative_path: str = get_relative_path(
+            self.get_nearly_forecast_dt())
+        file_name_nc: str = self.get_file_name('nc')
+        file_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
 
         # 将 txt => nc
         # step-1: 判断文件是否存在
@@ -296,11 +310,95 @@ class CoverageData(IFileInfo):
                 # step-4: 创建当前定义的经纬度坐标系的新的DataFrame
                 da = xr.DataArray(data_T, coords=[lat, lon], dims=['lat', 'lon'])
                 # step-5: DataFrame => Dataset
-                ds = xr.Dataset({'max_surge': da})
-                # step-6: 对 lat 进行倒叙排列——[0,0] 位置的 lat是max
-                ds_sorted_y = ds.sortby('lat', ascending=False)
+                ds: xr.Dataset = xr.Dataset({'max_surge': da})
+                # step-6-1: 对 lat 进行倒叙排列——[0,0] 位置的 lat是max
+                ds_sorted_y: xr.Dataset = ds.sortby('lat', ascending=False)
+                # step-6-2: 对经纬度信息进行标准化
+                ds_sorted_y['lat'].attrs['axis'] = 'Y'
+                ds_sorted_y['lat'].attrs['units'] = 'degrees_north'
+                ds_sorted_y['lat'].attrs['long_name'] = 'latitude'
+                ds_sorted_y['lat'].attrs['standard_name'] = 'latitude'
+                ds_sorted_y['lon'].attrs['axis'] = 'X'
+                ds_sorted_y['lon'].attrs['units'] = 'degrees_east'
+                ds_sorted_y['lon'].attrs['long_name'] = 'longitude'
+                ds_sorted_y['lon'].attrs['standard_name'] = 'longitude'
+                # step-6-3: 定义crs
+                ds_sorted_y = ds_sorted_y.rio.write_crs("epsg:4326", inplace=True)
                 # step-7: 转存为新的 nc文件，并返回文件
-                ds_sorted_y.to_netcdf('max_surge.nc', format='NETCDF4', mode='w')
+                nc_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
+                ds_sorted_y.to_netcdf(nc_full_path, format='NETCDF4', mode='w')
+                return CoverageFile(dir_path, relative_path, file_name_nc)
+
             pass
         else:
+            return None
             pass
+
+    def convert_2_coverage(self, dir_path: str) -> Optional[CoverageFile]:
+        root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
+        relative_path: str = get_relative_path(
+            self.get_nearly_forecast_dt())
+        file_name_nc: str = self.get_file_name('nc')
+        file_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
+
+        # 将 txt => nc
+        # step-1: 判断文件是否存在
+        if pathlib.Path(file_full_path).exists():
+            # step-2: 读取txt文件并加载至 DataFrame 中
+            with open(file_full_path, 'rb') as f:
+                # pandas.core.frame.DataFrame
+                data: pd.DataFrame = pd.read_csv(f, encoding='gbk', sep='\s+', header=None,
+                                                 infer_datetime_format=False)
+                # 此处需要加入对原矩阵的转置操作
+                data_T: pd.DataFrame = data.transpose()
+                # step-3: 生成经纬度集合
+                # 定义经纬度数组
+                # 注意经纬度网格的 长宽 无问题，但是范围有问题
+                # 220
+                lon = np.arange(105, 127, 0.1)
+                # 250
+                lat = np.arange(16, 41, 0.1)
+                # step-4: 创建当前定义的经纬度坐标系的新的DataFrame
+                da = xr.DataArray(data_T, coords=[lat, lon], dims=['lat', 'lon'])
+                # step-5: DataFrame => Dataset
+                ds: xr.Dataset = xr.Dataset({'max_surge': da})
+                # step-6-1: 对 lat 进行倒叙排列——[0,0] 位置的 lat是max
+                ds_sorted_y: xr.Dataset = ds.sortby('lat', ascending=False)
+                # step-6-2: 对经纬度信息进行标准化
+                ds_sorted_y['lat'].attrs['axis'] = 'Y'
+                ds_sorted_y['lat'].attrs['units'] = 'degrees_north'
+                ds_sorted_y['lat'].attrs['long_name'] = 'latitude'
+                ds_sorted_y['lat'].attrs['standard_name'] = 'latitude'
+                ds_sorted_y['lon'].attrs['axis'] = 'X'
+                ds_sorted_y['lon'].attrs['units'] = 'degrees_east'
+                ds_sorted_y['lon'].attrs['long_name'] = 'longitude'
+                ds_sorted_y['lon'].attrs['standard_name'] = 'longitude'
+                # step-6-3: 定义crs
+                ds_sorted_y = ds_sorted_y.rio.write_crs("epsg:4326", inplace=True)
+                # step-7: 转存为新的 nc文件，并返回文件
+                nc_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
+                ds_sorted_y.to_netcdf(nc_full_path, format='NETCDF4', mode='w')
+                return CoverageFile(dir_path, relative_path, file_name_nc)
+
+            pass
+        else:
+            return None
+            pass
+
+    def convert_2_tif(self, ds: xr.Dataset, nc_file: CoverageFile) -> CoverageFile:
+        """
+            将 转换后的 nc -> tif
+        @param coverage_file: nc文件
+        @return:
+        """
+        file_name: str = f'{nc_file.file_name_only}.tif'
+        tif_full_path: str = str(pathlib.Path(nc_file.root_path) / nc_file.relative_path / file_name)
+        ds.rio.to_raster(tif_full_path)
+        return CoverageFile(nc_file.root_path, nc_file.relative_path, tif_full_path)
+
+    def to_db(self, key: int):
+        """
+
+        @param key:
+        @return:
+        """

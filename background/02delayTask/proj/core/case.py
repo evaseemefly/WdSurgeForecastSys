@@ -1,6 +1,7 @@
 import arrow
-from core.files import StationRealDataFile
-from core.data import StationRealData
+from xarray as xr
+from core.files import StationRealDataFile, CoverageFile
+from core.data import StationRealData, CoverageData
 # 配置
 from conf.settings import DOWNLOAD_OPTIONS
 # 自定义装饰器
@@ -54,6 +55,28 @@ class StationRealDataCase:
         local_root_path: str = DOWNLOAD_OPTIONS.get('local_root_path')
         self.step_download(remote_root_path=remote_root_path, local_root_path=local_root_path, key=key)
         self.step_to_db()
+
+
+class MaxSurgeCoverageCase:
+    """
+        最大增水场 case
+    """
+
+    def __init__(self, utc_now: arrow.Arrow, key: int):
+        self.coverage: CoverageData = CoverageData(utc_now)
+        self.file: CoverageFile = None
+        self.timestamp: int = utc_now.int_timestamp
+        self.key = key
+        self.__ds: xr.Dataset = None
+
+    def step_download(self, remote_root_path: str, local_root_path: str, **kwargs):
+        self.coverage.download(remote_root_path, local_root_path, key=self.key)
+
+    def step_convert_nc(self, local_root_path: str):
+        self.coverage.convert_2_coverage(local_root_path)
+
+    def step_convert_tif(self, local_root_path: str):
+        self.coverage.convert_2_tif(None, local_root_path)
 
 
 def case_station_forecast_realdata():

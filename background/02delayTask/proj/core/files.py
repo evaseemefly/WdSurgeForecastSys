@@ -13,9 +13,15 @@ from common.default import DEFAULT_ARROW
 
 
 class IBaseFile(metaclass=ABCMeta):
-    def __init__(self, dir_path: str, file_name: str):
-        self.dir_path = dir_path
+    def __init__(self, root_path: str, relative_path: str, file_name: str):
+        self.root_path = root_path
+        self.relative_path = relative_path
+
         self.file_name = file_name
+
+    @property
+    def dir_path(self) -> str:
+        return str(pathlib.Path(self.root_path) / self.relative_path)
 
     @property
     def name_split(self) -> List[str]:
