@@ -64,7 +64,7 @@ class TaskInfo:
 
 
 class TaskFile:
-    def __init__(self, relative_path: str, file_name: str, task_id: int):
+    def __init__(self, relative_path: str, file_name: str, task_id: str):
         self.relative_path: str = relative_path
         self.file_name = file_name
         self.task_id = task_id

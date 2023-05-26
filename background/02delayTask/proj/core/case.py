@@ -1,7 +1,10 @@
 import arrow
 import xarray as xr
+from typing import Optional
+from common.enums import CoverageTypeEnum
 from core.files import StationRealDataFile, CoverageFile
 from core.data import StationRealData, CoverageData
+from model.coverage import GeoCoverageFileModel
 # 配置
 from conf.settings import DOWNLOAD_OPTIONS
 # 自定义装饰器
@@ -9,8 +12,11 @@ from util.decorators import decorator_task
 from util.util import generate_key
 from common.enums import TaskTypeEnum
 
-
 # from core.task import
+
+REMOTE_ROOT_PATH: str = DOWNLOAD_OPTIONS.get('remote_root_path')
+LOCAL_ROOT_PATH: str = DOWNLOAD_OPTIONS.get('local_root_path')
+
 
 class StationRealDataCase:
     """
@@ -20,11 +26,11 @@ class StationRealDataCase:
         持久化保存
     """
 
-    def __init__(self, utc_now: arrow.Arrow, key: int):
+    def __init__(self, utc_now: arrow.Arrow, key: str):
         self.station_realdata: StationRealData = StationRealData(utc_now)
-        self.file: StationRealDataFile = None
+        self.file: Optional[StationRealDataFile] = None
         self.timestamp: int = utc_now.int_timestamp
-        self.key = key
+        self.key: str = key
 
     def step_download(self, remote_root_path, local_root_path, **kwargs):
         """
@@ -51,9 +57,8 @@ class StationRealDataCase:
         @return:
         """
         now_utc: arrow.Arrow = arrow.utcnow()
-        remote_root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
-        local_root_path: str = DOWNLOAD_OPTIONS.get('local_root_path')
-        self.step_download(remote_root_path=remote_root_path, local_root_path=local_root_path, key=key)
+
+        self.step_download(remote_root_path=REMOTE_ROOT_PATH, local_root_path=LOCAL_ROOT_PATH, key=key)
         self.step_to_db()
 
 
@@ -64,7 +69,7 @@ class MaxSurgeCoverageCase:
 
     def __init__(self, utc_now: arrow.Arrow, key: str):
         self.coverage: CoverageData = CoverageData(utc_now)
-        self.file: CoverageFile = None
+        self.file: Optional[CoverageFile] = None
         self.timestamp: int = utc_now.int_timestamp
         self.key: str = key
         self.__ds: xr.Dataset = None
@@ -81,17 +86,20 @@ class MaxSurgeCoverageCase:
         @return:
         """
         ds: xr.Dataset = self.coverage.stand_2_dataset(local_root_path)
-        self.step_convert_nc(local_root_path, ds, key=self.key)
-        self.step_convert_tif(local_root_path, ds, key=self.key)
+        nc_file: CoverageFile = self.step_convert_nc(local_root_path, ds, key=self.key)
+        self.step_convert_tif(nc_file, ds, key=self.key)
 
-    def step_convert_nc(self, local_root_path: str, ds: xr.Dataset, key: str):
-        self.coverage.convert_2_coverage(local_root_path, ds)
+    def step_convert_nc(self, local_root_path: str, ds: xr.Dataset, key: str) -> CoverageFile:
+        standard_coverage_file: CoverageFile = self.coverage.convert_2_coverage(local_root_path, ds)
+        self.coverage.to_db(key, standard_coverage_file, CoverageTypeEnum.CONVERT_COVERAGE_FILE)
+        return standard_coverage_file
 
-    def step_convert_tif(self, local_root_path: str, ds: xr.Dataset, key: str):
-        self.coverage.convert_2_tif(ds, local_root_path)
+    def step_convert_tif(self, nc_file: CoverageFile, ds: xr.Dataset, key: str):
+        self.coverage.convert_2_tif(ds, nc_file)
+        self.coverage.to_db(key, nc_file, CoverageTypeEnum.CONVERT_COVERAGE_FILE)
 
 
-def case_station_forecast_realdata():
+def case_timer_station_forecast_realdata():
     """
         海洋站潮位预报 case
         此方法为调用 station realdata 的入口方法，根据当前时间执行 下载 -> 分类存储 -> to db 操作
@@ -102,3 +110,16 @@ def case_station_forecast_realdata():
     # 当前时间
     case_station = StationRealDataCase(now_utc, key)
     case_station.todo(key=key)
+
+
+def case_timer_maxsurge_coverage():
+    """
+        定时下载最大增水场并标准化入库
+        取消了 case 实例中的 todo 方法
+    @return:
+    """
+    now_utc: arrow.Arrow = arrow.utcnow()
+    task_key: str = generate_key()
+    maxsurge_coverage = MaxSurgeCoverageCase(now_utc, task_key)
+    maxsurge_coverage.step_download(REMOTE_ROOT_PATH, LOCAL_ROOT_PATH)
+    maxsurge_coverage.step_convert(LOCAL_ROOT_PATH)

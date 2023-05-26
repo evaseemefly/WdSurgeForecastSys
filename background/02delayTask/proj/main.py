@@ -8,7 +8,7 @@ from model.base_model import BaseMeta
 from model.task import to_migrate
 import model.task as tk
 from common.comm_dicts import station_code_dicts
-from core.case import StationRealDataCase, case_station_forecast_realdata
+from core.case import StationRealDataCase, case_timer_station_forecast_realdata, case_timer_maxsurge_coverage
 import model.station as st
 import model.coverage as ci
 
@@ -27,7 +27,11 @@ def to_create_db():
 
 
 def test_station_realdata():
-    case_station_forecast_realdata()
+    case_timer_station_forecast_realdata()
+
+
+def test_maxsurge_coverg():
+    case_timer_maxsurge_coverage()
 
 
 # def get_no_exist_staiton_code():
@@ -35,7 +39,8 @@ def test_station_realdata():
 
 # 按间距中的绿色按钮以运行脚本。
 if __name__ == '__main__':
-    to_create_db()
+    # to_create_db()
     # test_station_realdata()
+    test_maxsurge_coverg()
 
 # 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助

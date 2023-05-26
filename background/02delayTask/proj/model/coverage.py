@@ -4,7 +4,7 @@ from sqlalchemy import String
 from datetime import datetime
 from arrow import Arrow
 from core.db import DbFactory
-
+from common.enums import CoverageTypeEnum
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX, DEFAULT_PATH, \
     DEFAULT_EXT, DEFAULT_ENUM
@@ -32,6 +32,9 @@ class GeoCoverageFileModel(IDel, IIdIntModel, IForecastTime, ICoverageFileModel,
     """
     __tablename__ = 'geo_coverage_file'
     pid: Mapped[int] = mapped_column(default=DEFAULT_FK)
+
+    # def add(self, task_id: str, relative_path: str, file_name: str, forecast_dt_arrow: Arrow,
+    #         coverage_type: CoverageTypeEnum, pid: int = -1):
 
 
 def to_migrate():

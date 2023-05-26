@@ -7,7 +7,7 @@ from sqlalchemy.dialects.mysql import DATETIME, INTEGER, TINYINT, VARCHAR
 from arrow import Arrow
 import arrow
 import shutil
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from pandas import Series
 import pandas as pd
@@ -23,7 +23,7 @@ from model.station import StationForecastRealDataModel
 from model.coverage import GeoCoverageFileModel
 from util.decorators import decorator_job
 from util.util import get_relative_path
-from common.enums import JobStepsEnum
+from common.enums import JobStepsEnum, CoverageTypeEnum
 from common.comm_dicts import station_code_dicts
 
 
@@ -74,7 +74,7 @@ class StationRealData(IFileInfo):
         return forecast_dt
 
     @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
-    def download(self, dir_path: str, copy_dir_path: str, key: int) -> Optional[StationRealDataFile]:
+    def download(self, dir_path: str, copy_dir_path: str, key: str) -> Optional[StationRealDataFile]:
         """
             根据 self.now 进行文件下载
         @param dir_path: 原始路径
@@ -175,7 +175,7 @@ class StationRealData(IFileInfo):
         @param key: * 必填参数，装饰器更新 task job 使用
         @return:
         """
-        dict_station_list: dict[str, Series] = station_file.get_station_realdata_list()
+        dict_station_list: Dict[str, Series] = station_file.get_station_realdata_list()
 
         for temp_key in dict_station_list:
             temp_forecast_start_dt: Arrow = station_file.forecast_dt_start
@@ -241,9 +241,10 @@ class CoverageData(IFileInfo):
         return forecast_dt
 
     @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
-    def download(self, dir_path: str, copy_dir_path: str, key: int) -> Optional[CoverageFile]:
+    def download(self, dir_path: str, copy_dir_path: str, key: str) -> Optional[CoverageFile]:
         """
             根据 self.now 进行文件下载
+        @param key: task_id
         @param dir_path: 原始路径
         @param copy_dir_path: 存储路径
         @return: StationRealDataFile 海洋站预报潮位文件
@@ -272,7 +273,7 @@ class CoverageData(IFileInfo):
         else:
             return None
 
-    def get_file_name(self, file_ext: str):
+    def get_file_name(self, file_ext: str) -> str:
         """
             根据当前时间获取最近的预报时刻生成对应的文件名称
         @param file_ext: 文件后缀
@@ -402,7 +403,8 @@ class CoverageData(IFileInfo):
     def convert_2_tif(self, ds: xr.Dataset, nc_file: CoverageFile) -> CoverageFile:
         """
             将 转换后的 nc -> tif
-        @param coverage_file: nc文件
+        @param ds:
+        @param nc_file: nc文件
         @return:
         """
         file_name: str = f'{nc_file.file_name_only}.tif'
@@ -410,9 +412,23 @@ class CoverageData(IFileInfo):
         ds.rio.to_raster(tif_full_path)
         return CoverageFile(nc_file.root_path, nc_file.relative_path, tif_full_path)
 
-    def to_db(self, key: int):
+    def to_db(self, task_id: str, coverage_file: CoverageFile, coverage_type: CoverageTypeEnum, pid=-1):
         """
-
-        @param key:
+            记录当前 coverage_file to db
+        @param task_id:
+        @param coverage_file:
+        @param coverage_type:
+        @param pid:
         @return:
         """
+        if coverage_file is not None:
+            coverage_file_model: GeoCoverageFileModel = GeoCoverageFileModel(task_id=task_id,
+                                                                             relative_path=coverage_file.relative_path,
+                                                                             file_name=coverage_file.file_name,
+                                                                             coverage_type=coverage_type,
+                                                                             forecast_dt=coverage_file.forecast_dt_start.datetime,
+                                                                             forecast_ts=coverage_file.forecast_dt_start.int_timestamp,
+                                                                             pid=pid
+                                                                             )
+            self.session.add(coverage_file_model)
+            self.session.commit()
