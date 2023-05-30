@@ -15,6 +15,7 @@ import numpy as np
 import xarray as xr
 import rioxarray
 
+from common.default import DEFAULT_FK_STR
 from core.db import DbFactory
 from core.files import StationRealDataFile, CoverageFile
 from conf.settings import DOWNLOAD_OPTIONS
@@ -240,7 +241,7 @@ class CoverageData(IFileInfo):
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
         return forecast_dt
 
-    @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
+    @decorator_job(JobStepsEnum.DOWNLOAD_COVERAGE)
     def download(self, dir_path: str, copy_dir_path: str, key: str) -> Optional[CoverageFile]:
         """
             根据 self.now 进行文件下载
@@ -335,7 +336,8 @@ class CoverageData(IFileInfo):
             return None
             pass
 
-    def stand_2_dataset(self, dir_path: str) -> Optional[xr.Dataset]:
+    @decorator_job(JobStepsEnum.STANDARD_COVERAGE)
+    def stand_2_dataset(self, dir_path: str, key: str) -> Optional[xr.Dataset]:
         """
             将 dir_path 为根目录根据当前的时间获取对应的文件并标准化后返回 Dataset
         @param dir_path:
@@ -386,7 +388,8 @@ class CoverageData(IFileInfo):
             return None
             pass
 
-    def convert_2_coverage(self, dir_path: str, ds: xr.Dataset) -> Optional[CoverageFile]:
+    @decorator_job(JobStepsEnum.CONVERT_COVERAGE_NC)
+    def convert_2_coverage(self, dir_path: str, ds: xr.Dataset, key: str) -> Optional[CoverageFile]:
         root_path: str = DOWNLOAD_OPTIONS.get('remote_root_path')
         relative_path: str = get_relative_path(
             self.get_nearly_forecast_dt())
@@ -423,7 +426,8 @@ class CoverageData(IFileInfo):
         else:
             return None
 
-    def convert_2_tif(self, ds: xr.Dataset, nc_file: CoverageFile) -> CoverageFile:
+    @decorator_job(JobStepsEnum.CONVERT_COVERAGE_TIF)
+    def convert_2_tif(self, ds: xr.Dataset, nc_file: CoverageFile, key: str) -> CoverageFile:
         """
             将 转换后的 nc -> tif
         @param ds:
@@ -435,7 +439,9 @@ class CoverageData(IFileInfo):
         ds.rio.to_raster(tif_full_path)
         return CoverageFile(nc_file.root_path, nc_file.relative_path, file_name)
 
-    def to_db(self, task_id: str, coverage_file: CoverageFile, coverage_type: CoverageTypeEnum, pid=-1, file_ext='.nc'):
+    @decorator_job(JobStepsEnum.STORE_DB_COVERAGE)
+    def to_db(self, task_id: str, coverage_file: CoverageFile, coverage_type: CoverageTypeEnum, pid=-1, file_ext='.nc',
+              key: str = DEFAULT_FK_STR):
         """
             记录当前 coverage_file to db
         @param task_id:

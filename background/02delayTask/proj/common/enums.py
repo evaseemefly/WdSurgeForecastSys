@@ -23,8 +23,10 @@ class JobStepsEnum(Enum):
     DOWNLOAD_COVERAGE = 1203  # - 下载增水文件
     READFILE_STATION = 1204  # - 读取站点文件
     STORE_DB_STATION = 1205  # - 将站点数据存储至db
-    CONVERT_COVERAGE_NC = 1206  # - 读取增水场文件转换至
-    CONVERT_COVERAGE_TIF = 1207  # - 读取增水场文件转换至tif
+    STANDARD_COVERAGE = 1206  # - 标准化coverage文件
+    CONVERT_COVERAGE_NC = 1207  # - 读取增水场文件转换至
+    CONVERT_COVERAGE_TIF = 1208  # - 读取增水场文件转换至tif
+    STORE_DB_COVERAGE = 1209  # 将 coverage 数据存储至 db
 
 
 class LogLevelEnum(Enum):

@@ -85,18 +85,18 @@ class MaxSurgeCoverageCase:
         @param local_root_path:
         @return:
         """
-        ds: xr.Dataset = self.coverage.stand_2_dataset(local_root_path)
+        ds: xr.Dataset = self.coverage.stand_2_dataset(local_root_path, key=self.key)
         nc_file: CoverageFile = self.step_convert_nc(local_root_path, ds, key=self.key)
         self.step_convert_tif(nc_file, ds, key=self.key)
 
     def step_convert_nc(self, local_root_path: str, ds: xr.Dataset, key: str) -> CoverageFile:
-        standard_coverage_file: CoverageFile = self.coverage.convert_2_coverage(local_root_path, ds)
-        self.coverage.to_db(key, standard_coverage_file, CoverageTypeEnum.CONVERT_COVERAGE_FILE)
+        standard_coverage_file: CoverageFile = self.coverage.convert_2_coverage(local_root_path, ds, key=self.key)
+        self.coverage.to_db(key, standard_coverage_file, CoverageTypeEnum.CONVERT_COVERAGE_FILE, key=self.key)
         return standard_coverage_file
 
     def step_convert_tif(self, nc_file: CoverageFile, ds: xr.Dataset, key: str):
-        tif_coverage_file: CoverageFile = self.coverage.convert_2_tif(ds, nc_file)
-        self.coverage.to_db(key, tif_coverage_file, CoverageTypeEnum.CONVERT_TIF_FILE, file_ext='.tif')
+        tif_coverage_file: CoverageFile = self.coverage.convert_2_tif(ds, nc_file, key=self.key)
+        self.coverage.to_db(key, tif_coverage_file, CoverageTypeEnum.CONVERT_TIF_FILE, file_ext='.tif', key=self.key)
 
     @decorator_task('task_station_forecast_realdata', TaskTypeEnum.JOB_COVERAGE)
     def todo(self, key: str):
