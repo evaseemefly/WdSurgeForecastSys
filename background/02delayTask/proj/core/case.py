@@ -49,7 +49,7 @@ class StationRealDataCase:
         self.station_realdata.to_db(self.file, key=self.key)
 
     @decorator_task('task_station_forecast_realdata', TaskTypeEnum.JOB_STATION)
-    def todo(self, key: int):
+    def todo(self, key: str):
         """
             station realdata case 执行方法
             创建 job station task
@@ -95,8 +95,13 @@ class MaxSurgeCoverageCase:
         return standard_coverage_file
 
     def step_convert_tif(self, nc_file: CoverageFile, ds: xr.Dataset, key: str):
-        self.coverage.convert_2_tif(ds, nc_file)
-        self.coverage.to_db(key, nc_file, CoverageTypeEnum.CONVERT_COVERAGE_FILE)
+        tif_coverage_file: CoverageFile = self.coverage.convert_2_tif(ds, nc_file)
+        self.coverage.to_db(key, tif_coverage_file, CoverageTypeEnum.CONVERT_TIF_FILE, file_ext='.tif')
+
+    @decorator_task('task_station_forecast_realdata', TaskTypeEnum.JOB_COVERAGE)
+    def todo(self, key: str):
+        self.step_download(REMOTE_ROOT_PATH, LOCAL_ROOT_PATH)
+        self.step_convert(LOCAL_ROOT_PATH)
 
 
 def case_timer_station_forecast_realdata():
@@ -121,5 +126,4 @@ def case_timer_maxsurge_coverage():
     now_utc: arrow.Arrow = arrow.utcnow()
     task_key: str = generate_key()
     maxsurge_coverage = MaxSurgeCoverageCase(now_utc, task_key)
-    maxsurge_coverage.step_download(REMOTE_ROOT_PATH, LOCAL_ROOT_PATH)
-    maxsurge_coverage.step_convert(LOCAL_ROOT_PATH)
+    maxsurge_coverage.todo(key=task_key)

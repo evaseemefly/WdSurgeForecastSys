@@ -343,7 +343,7 @@ class CoverageData(IFileInfo):
         """
         relative_path: str = get_relative_path(
             self.get_nearly_forecast_dt())
-        file_name_nc: str = self.get_file_name('nc')
+        file_name_nc: str = self.get_file_name('txt')
         file_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
 
         # 将 txt => nc
@@ -395,6 +395,29 @@ class CoverageData(IFileInfo):
         if ds is not None:
             # step-7: 转存为新的 nc文件，并返回文件
             nc_full_path: str = str(pathlib.Path(dir_path) / relative_path / file_name_nc)
+            # TODO:[-] 23-05-29 ValueError: cannot read or write netCDF files without netCDF4-python or scipy installed
+            # docker 环境:
+            # xarray: 0.20.2
+            # pandas: 1.3.5
+            # numpy: 1.21.5
+            # scipy: None
+            # netCDF4: None
+            # pydap: None
+            # h5netcdf: None
+            # h5py: None
+            # Nio: None
+            # zarr: None
+            # -----
+            # xarray: 0.17.0
+            # pandas: 1.2.3
+            # numpy: 1.20.2
+            # scipy: 1.6.2
+            # netCDF4: 1.5.6
+            # pydap: None
+            # h5netcdf: None
+            # h5py: None
+            # Nio: None
+            # zarr: None
             ds.to_netcdf(nc_full_path, format='NETCDF4', mode='w')
             return CoverageFile(dir_path, relative_path, file_name_nc)
         else:
@@ -410,24 +433,26 @@ class CoverageData(IFileInfo):
         file_name: str = f'{nc_file.file_name_only}.tif'
         tif_full_path: str = str(pathlib.Path(nc_file.root_path) / nc_file.relative_path / file_name)
         ds.rio.to_raster(tif_full_path)
-        return CoverageFile(nc_file.root_path, nc_file.relative_path, tif_full_path)
+        return CoverageFile(nc_file.root_path, nc_file.relative_path, file_name)
 
-    def to_db(self, task_id: str, coverage_file: CoverageFile, coverage_type: CoverageTypeEnum, pid=-1):
+    def to_db(self, task_id: str, coverage_file: CoverageFile, coverage_type: CoverageTypeEnum, pid=-1, file_ext='.nc'):
         """
             记录当前 coverage_file to db
         @param task_id:
         @param coverage_file:
         @param coverage_type:
         @param pid:
+        @param file_ext: 文件后缀 (默认 =.nc)
         @return:
         """
         if coverage_file is not None:
             coverage_file_model: GeoCoverageFileModel = GeoCoverageFileModel(task_id=task_id,
                                                                              relative_path=coverage_file.relative_path,
                                                                              file_name=coverage_file.file_name,
-                                                                             coverage_type=coverage_type,
+                                                                             coverage_type=coverage_type.value,
                                                                              forecast_dt=coverage_file.forecast_dt_start.datetime,
                                                                              forecast_ts=coverage_file.forecast_dt_start.int_timestamp,
+                                                                             file_ext=file_ext,
                                                                              pid=pid
                                                                              )
             self.session.add(coverage_file_model)

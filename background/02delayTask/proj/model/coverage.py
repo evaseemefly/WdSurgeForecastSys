@@ -21,7 +21,7 @@ metadata = BaseMeta.metadata
 class ICoverageFileModel(BaseMeta):
     __abstract__ = True
     relative_path: Mapped[str] = mapped_column(String(50), default=DEFAULT_PATH)
-    file_name: Mapped[str] = mapped_column(String(50), default=DEFAULT_NAME)
+    file_name: Mapped[str] = mapped_column(String(100), default=DEFAULT_NAME)
     file_ext: Mapped[str] = mapped_column(String(50), default=DEFAULT_EXT)
     coverage_type: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
 
