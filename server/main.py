@@ -26,7 +26,7 @@ origins = [
 def init_app():
     app = FastAPI(
         title="global surge system",
-        description="全球潮位共享业务化系统.本系统通过:fastapi+sqlalchemy+typer实现",
+        description="温带风暴潮预报业务系统.本系统通过:fastapi+sqlalchemy+typer实现",
         version="1.0.0"
     )
     # - 23-03-27 加入 cores
