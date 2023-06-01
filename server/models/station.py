@@ -3,17 +3,11 @@ from sqlalchemy.orm import mapped_column, DeclarativeBase
 from sqlalchemy import String
 from datetime import datetime
 from arrow import Arrow
-from core.db import DbFactory
-
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX
 
-from model.base_model import BaseMeta, IIdIntModel, IDel
-from model.task import ITask
-
-engine = DbFactory().engine
-# md = MetaData(bind=engine)  # 引用MetaData
-metadata = BaseMeta.metadata
+from models.base_model import BaseMeta, IIdIntModel, IDel
+from models.task import ITask
 
 
 class IForecastTime(BaseMeta):
@@ -66,11 +60,3 @@ class StationForecastRealDataModel(IIdIntModel, IDel, IForecastTime, IIssueTime,
         cls.__table__.name = tab_name
 
     pass
-
-
-def to_migrate():
-    """
-        根据ORM生成数据库结构
-    :return:
-    """
-    BaseMeta.metadata.create_all(engine)

@@ -10,17 +10,12 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 from datetime import datetime
 from arrow import Arrow
-from core.db import DbFactory
 
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX, DEFAULT_ENUM, \
     DEFAULT_FK_STR
 
-from model.base_model import BaseMeta, IIdStrModel, IIdIntModel, IDel, IModel
-
-engine = DbFactory().engine
-# md = MetaData(bind=engine)  # 引用MetaData
-metadata = BaseMeta.metadata
+from models.base_model import BaseMeta, IIdStrModel, IIdIntModel, IDel, IModel
 
 
 class ITask(BaseMeta):
@@ -75,11 +70,3 @@ class TaskFiles(IIdIntModel, IDel, IModel, ITask):
     file_name: Mapped[str] = mapped_column(String(200), default=DEFAULT_NAME)
     relative_path: Mapped[str] = mapped_column(String(400), default=DEFAULT_NAME)
     __tablename__ = 'task_files'
-
-
-def to_migrate():
-    """
-        根据ORM生成数据库结构
-    :return:
-    """
-    BaseMeta.metadata.create_all(engine)

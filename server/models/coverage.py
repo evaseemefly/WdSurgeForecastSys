@@ -3,19 +3,15 @@ from sqlalchemy.orm import mapped_column, DeclarativeBase
 from sqlalchemy import String
 from datetime import datetime
 from arrow import Arrow
-from core.db import DbFactory
+from db.db_factory import DBFactory
 from common.enums import CoverageTypeEnum
 from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFAULT_PATH_TYPE, DEFAULT_PRO, \
     UNLESS_RANGE, DEFAULT_TABLE_NAME, DEFAULT_YEAR, DEFAULT_SURGE, DEFAULT_NAME, DEFAULT_COUNTRY_INDEX, DEFAULT_PATH, \
     DEFAULT_EXT, DEFAULT_ENUM
 
-from model.base_model import BaseMeta, IIdIntModel, IDel, IModel
-from model.station import IForecastTime
-from model.task import ITask
-
-engine = DbFactory().engine
-# md = MetaData(bind=engine)  # 引用MetaData
-metadata = BaseMeta.metadata
+from models.base_model import BaseMeta, IIdIntModel, IDel, IModel
+from models.station import IForecastTime
+from models.task import ITask
 
 
 class ICoverageFileModel(BaseMeta):
@@ -35,11 +31,3 @@ class GeoCoverageFileModel(IDel, IIdIntModel, IForecastTime, ICoverageFileModel,
 
     # def add(self, task_id: str, relative_path: str, file_name: str, forecast_dt_arrow: Arrow,
     #         coverage_type: CoverageTypeEnum, pid: int = -1):
-
-
-def to_migrate():
-    """
-        根据ORM生成数据库结构
-    :return:
-    """
-    BaseMeta.metadata.create_all(engine)
