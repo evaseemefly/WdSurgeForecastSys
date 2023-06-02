@@ -458,6 +458,8 @@ class CoverageData(IFileInfo):
                                                                              coverage_type=coverage_type.value,
                                                                              forecast_dt=coverage_file.forecast_dt_start.datetime,
                                                                              forecast_ts=coverage_file.forecast_dt_start.int_timestamp,
+                                                                             issue_dt=coverage_file.forecast_dt_start.datetime,
+                                                                             issue_ts=coverage_file.forecast_dt_start.int_timestamp,
                                                                              file_ext=file_ext,
                                                                              pid=pid
                                                                              )
