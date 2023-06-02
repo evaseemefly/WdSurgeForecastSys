@@ -1,7 +1,10 @@
 from typing import List, Optional, Any
 
+from common.utils import get_remote_url
+from config.store_config import StoreConfig
 from models.task import TaskInfoModel
 from models.coverage import GeoCoverageFileModel
+from models.task import TaskInfoModel
 from dao.base import BaseDao
 from common.enums import CoverageTypeEnum, ForecastProductTypeEnum
 
@@ -16,7 +19,12 @@ class CoverageDao(BaseDao):
         @param kwargs:
         @return:
         """
-        return None
+        session = self.db.session
+        query = session.query(GeoCoverageFileModel).filter(issue_ts == issue_ts)
+        if kwargs.get('coverage_type') is not None:
+            coverage_type: CoverageTypeEnum = kwargs.get('coverage_type')
+            query = query.filter(coverage_type == coverage_type.value)
+        return query.first()
 
     def get_nc_file_url(self, issue_ts: int, forecast_product_type: ForecastProductTypeEnum) -> str:
         """
@@ -27,14 +35,18 @@ class CoverageDao(BaseDao):
         """
         return ''
 
-    def get_tif_file_url(self, issue_ts: int, forecast_product_type: ForecastProductTypeEnum) -> str:
+    def get_tif_file_url(self, issue_ts: int) -> str:
         """
             根据 发布时间 + 预报产品种类 获取 tif 文件 url
         @param issue_ts:
         @param forecast_product_type:
         @return:
         """
-        return ''
+        file_info: GeoCoverageFileModel = self.get_coveage_file(issue_ts,
+                                                                coverage_type=CoverageTypeEnum.CONVERT_TIF_FILE)
+        full_url: str = get_remote_url(file_info)
+
+        return full_url
 
     def get_file_url(self, **kwargs) -> str:
         """

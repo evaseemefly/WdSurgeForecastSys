@@ -6,13 +6,13 @@ class DBConfig:
     """
 
     driver = 'mysql+mysqldb'
-    # host = '127.0.0.1'
+    host = '127.0.0.1'
     # 宿主机的mysql服务
-    host = 'host.docker.internal'
+    # host = 'host.docker.internal'
     port = '3306'
     username = 'root'
     password = '123456'
-    database = 'surge_global_sys'
+    database = 'wd_forecast_db'
     charset = 'utf8mb4'
     table_name_prefix = ''
     echo = False

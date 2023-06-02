@@ -10,7 +10,7 @@ from common.default import DEFAULT_FK, UNLESS_INDEX, NONE_ID, DEFAULT_CODE, DEFA
     DEFAULT_EXT, DEFAULT_ENUM
 
 from models.base_model import BaseMeta, IIdIntModel, IDel, IModel
-from models.station import IForecastTime
+from models.station import IForecastTime, IIssueTime
 from models.task import ITask
 
 
@@ -22,7 +22,7 @@ class ICoverageFileModel(BaseMeta):
     coverage_type: Mapped[int] = mapped_column(default=DEFAULT_ENUM)
 
 
-class GeoCoverageFileModel(IDel, IIdIntModel, IForecastTime, ICoverageFileModel, IModel, ITask):
+class GeoCoverageFileModel(IDel, IIdIntModel, IForecastTime, IIssueTime, ICoverageFileModel, IModel, ITask):
     """
 
     """

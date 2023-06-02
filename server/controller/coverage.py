@@ -18,7 +18,7 @@ def get_coverage_url(issue_ts: int) -> str:
     @return:
     """
     url: str = ''
-    url = CoverageDao().get_coveage_file(issue_ts=issue_ts)
+    url = CoverageDao().get_tif_file_url(issue_ts=issue_ts)
     return url
 
 
