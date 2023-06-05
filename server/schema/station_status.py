@@ -8,12 +8,15 @@ class StationStatusSchema(BaseModel):
     """
     id: int
     station_code: str
-    status: int
+    # status: int
     # gmt_realtime: datetime
     # gmt_modify_time: datetime
-    tid: int
+    # tid: int
     is_del: bool
-    gmt_realtime: datetime
+    forecast_dt: datetime
+    forecast_ts: int
+    issue_dt: datetime
+    issue_ts: int
 
     # TODO:[-] 23-03-10 sqlalchemy 不返回字典，而pydantic 需要字典，则需要通过设置 orm 参数通过 orm对象的属性查找而不通过字典查找!
     class Config:
@@ -46,9 +49,13 @@ class StationSurgeSchema(BaseModel):
     """
     station_code: str
     surge: float
-    tid: int
-    gmt_realtime: datetime
-    ts: int
+    # tid: int
+    # gmt_realtime: datetime
+    # ts: int
+    forecast_dt: datetime
+    forecast_ts: int
+    issue_dt: datetime
+    issue_ts: int
 
     class Config:
         orm_mode = True

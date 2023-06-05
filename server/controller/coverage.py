@@ -35,3 +35,14 @@ def get_coverage_url(issue_ts: int) -> Optional[GeoCoverageFileModel]:
     coverage_info = CoverageDao().get_coveage_file(issue_ts=issue_ts)
     # TODO:[*] 23-06-01 需要将: GeoCoverageFileModel. relative_path+file_name -> remote_url
     return coverage_info
+
+
+@app.get('/dist/ts', summary="获取 geo_coverage_file 的不同 issue_ts 并以集合的方式返回", )
+def get_dist_ts(limit: int = 10) -> List[int]:
+    """
+        获取 geo_coverage_file 的不同 issue_ts 并以集合的方式返回
+    @param limit:
+    @return:
+    """
+    list_dist_ts: List[int] = CoverageDao().get_dist_ts()
+    return list_dist_ts

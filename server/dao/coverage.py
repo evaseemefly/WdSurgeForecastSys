@@ -1,5 +1,6 @@
 from typing import List, Optional, Any
 
+from sqlalchemy import distinct, select
 from common.utils import get_remote_url
 from config.store_config import StoreConfig
 from models.task import TaskInfoModel
@@ -9,7 +10,7 @@ from dao.base import BaseDao
 from common.enums import CoverageTypeEnum, ForecastProductTypeEnum
 
 
-class CoverageDao(BaseDao):
+class BaseCoverageDao(BaseDao):
 
     def get_coveage_file(self, issue_ts: int, **kwargs) -> Optional[GeoCoverageFileModel]:
         """
@@ -25,6 +26,31 @@ class CoverageDao(BaseDao):
             coverage_type: CoverageTypeEnum = kwargs.get('coverage_type')
             query = query.filter(coverage_type == coverage_type.value)
         return query.first()
+
+    def _get_dist_ts_limit(self, limit: int = 10, desc: bool = True) -> List[int]:
+        """
+            从 tb: geo_coverage_file 中获取不同的 issue_ts，选取 limit 个;
+        @param limit: 取出多少个
+        @param desc:  是否降序排列（默认降序）
+        @return:
+        """
+        session = self.db.session
+        # 方式1
+        # query = session.query(distinct(GeoCoverageFileModel.issue_ts))
+        # if desc:
+        #     # sqlalchemy.exc.CompileError: Can't resolve label reference for ORDER BY / GROUP BY / DISTINCT
+        #     # etc. Textual SQL expression '-issue_ts' should be explicitly declared as text('-issue_ts')
+        #     query = query.order_by(GeoCoverageFileModel.issue_ts.desc()).all()
+        # 方式2: 使用 select 进行复杂查询
+        filter_condition = select(GeoCoverageFileModel.issue_ts).group_by(GeoCoverageFileModel.issue_ts)
+        if desc:
+            filter_condition = filter_condition.order_by(GeoCoverageFileModel.issue_ts.desc()).limit(limit)
+        resut = session.execute(filter_condition).fetchall()
+        list_dist_ts: List[int] = [ts.issue_ts for ts in resut]
+        return list_dist_ts
+
+
+class CoverageDao(BaseCoverageDao):
 
     def get_nc_file_url(self, issue_ts: int, forecast_product_type: ForecastProductTypeEnum) -> str:
         """
@@ -55,3 +81,11 @@ class CoverageDao(BaseDao):
         @return:
         """
         return ''
+
+    def get_dist_ts(self, **kwargs) -> List[int]:
+        """
+            从 tb: geo_coverage_file 中获取不同的 issue_ts
+        @param kwargs:
+        @return:
+        """
+        return self._get_dist_ts_limit()

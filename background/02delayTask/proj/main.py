@@ -40,7 +40,7 @@ def test_maxsurge_coverg():
 # 按间距中的绿色按钮以运行脚本。
 if __name__ == '__main__':
     # to_create_db()
-    # test_station_realdata()
-    test_maxsurge_coverg()
+    test_station_realdata()
+    # test_maxsurge_coverg()
 
 # 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助
