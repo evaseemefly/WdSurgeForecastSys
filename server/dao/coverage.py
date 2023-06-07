@@ -7,6 +7,7 @@ from models.task import TaskInfoModel
 from models.coverage import GeoCoverageFileModel
 from models.task import TaskInfoModel
 from dao.base import BaseDao
+
 from common.enums import CoverageTypeEnum, ForecastProductTypeEnum
 
 
