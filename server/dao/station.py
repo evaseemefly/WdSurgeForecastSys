@@ -12,6 +12,11 @@ from common.enums import CoverageTypeEnum, ForecastProductTypeEnum
 
 class StationSurgeDao(BaseDao):
     def get_station_last_surge(self, **kwargs) -> Optional[List[SurgeRealDataSchema]]:
+        """
+            获取各个站点最后时刻的潮位数据及发布时间
+        @param kwargs:
+        @return:
+        """
         session = self.db.session
         now_arrow: arrow.Arrow = arrow.utcnow()
         # 加入动态修改 tb
@@ -46,6 +51,15 @@ class StationSurgeDao(BaseDao):
 
     def get_station_surge_list(self, station_code: str, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
             Optional[List[StationForecastRealDataModel]]:
+        """
+            根据 code 与 发布时间 issue_ts 获取制定时间范围内的 start_ts end_ts 潮位预报数据
+        @param station_code:
+        @param issue_ts:
+        @param start_ts:
+        @param end_ts:
+        @param kwargs:
+        @return:
+        """
         session = self.db.session
         issue_arrow: arrow.Arrow = arrow.get(issue_ts)
         # 加入动态修改 tb
