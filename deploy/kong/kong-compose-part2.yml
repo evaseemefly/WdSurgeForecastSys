@@ -1,0 +1,65 @@
+version: '2.1'
+services:
+  kong-migrations:
+    image: "kong:1.0.3"
+    command: kong migrations bootstrap
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_DATABASE: kong
+      KONG_PG_HOST: db
+      KONG_PG_PASSWORD: kong
+      KONG_PG_USER: kong
+    links:
+      - db:db
+  kong:
+    image: "kong:1.0.3"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: '0.0.0.0:8001'
+      KONG_CASSANDRA_CONTACT_POINTS: db
+      KONG_DATABASE: postgres
+      KONG_PG_DATABASE: kong
+      KONG_PG_HOST: db
+      KONG_PG_PASSWORD: kong
+      KONG_PG_USER: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+    links:
+      - db:db
+    ports:
+    # 目前已使用的端口:
+      # 27017 | 8000 | 9000 | 8086 | 8080 | 8082 | 8085 | 82 | 8084
+      #  - 8000:8000
+      # - 8443:8443
+      # - 8001:8001
+      # - 8444:8444
+      # - 8002:8002
+      # - 8445:8445
+      # - 8003:8003
+      # - 8004:8004
+      # - "8000:8000/tcp"
+      - "8001:8001/tcp"
+      - "8443:8443/tcp"
+      - "8444:8444/tcp"
+    restart: on-failure
+  db:
+    image: postgres:9.6
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kong
+      POSTGRES_USER: kong
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kong"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: on-failure
+    stdin_open: true
+    tty: true

@@ -1,0 +1,112 @@
+version: "3.0"
+networks:
+  kong:
+    driver: bridge
+services:
+  postgres:
+    image: postgres:11.11 #tag高于12 konga-prepare 容器启动报错
+    restart: always
+    container_name: postgres
+    hostname: postgres
+    ports:
+      - 5432:5432
+    environment:
+      - "POSTGRES_USER=postgres"
+      - "POSTGRES_DB=kong"
+      - "POSTGRES_PASSWORD=postgres"
+    volumes:
+      - /var/docker-compose-config/kong:/var/lib/postgresql/data
+    networks:
+      - kong
+  #执行数据库迁移初始化表
+  kong-migration:
+    image: kong:2.3
+    command: "kong migrations bootstrap"
+    container_name: kong-migration
+    hostname: kong-migration
+    restart: on-failure
+    links:
+      - "postgres:postgres"
+    environment:
+      - "KONG_DATABASE=postgres"
+      - "KONG_PG_USER=postgres"
+      - "KONG_PG_DATABASE=kong"
+      - "KONG_PG_HOST=postgres"
+      - "KONG_PG_PASSWORD=postgres"
+      - "KONG_CASSANDRA_CONTACT_POINTS=postgres"
+    depends_on:
+      - postgres
+    networks:
+      - kong
+  kong:
+    image: kong:2.3
+    restart: always
+    container_name: kong
+    hostname: kong
+    links:
+      - "postgres:postgres"
+    environment:
+      - "KONG_DATABASE=postgres"
+      - "KONG_PG_USER=postgres"
+      - "KONG_PG_DATABASE=kong"
+      - "KONG_PG_HOST=postgres"
+      - "KONG_PG_PASSWORD=postgres"
+      - "KONG_CASSANDRA_CONTACT_POINTS=postgres"
+      #  - "KONG_PROXY_LISTEN=0.0.0.0:8000"
+      - "KONG_PROXY_LISTEN_SSL=0.0.0.0:8443"
+      - "KONG_ADMIN_LISTEN=0.0.0.0:8001"
+    depends_on:
+      - postgres
+      - kong-migration
+    ports:
+      - 8001:8001
+      #  - 8000:8000
+      - 8443:8443
+    networks:
+      - kong
+  konga-prepare:
+    image: pantsel/konga:0.14.9
+    #postgresql://postgres[用户]:postgres[密码]@postgres[ip]:5432/kong
+    command: "-c prepare -a postgres -u postgresql://postgres:postgres@postgres:5432/kong"
+    restart: on-failure
+    container_name: konga-prepare
+    hostname: konga-prepare
+    environment:
+      - "DB_ADAPTER=postgres"
+      - "DB_HOST=postgres"
+      - "DB_PORT=5432"
+      - "DB_USER=postgres"
+      - "DB_PASSWORD=postgres"
+      - "DB_DATABASE=kong"
+      - "NODE_ENV=development"
+    links:
+      - "postgres:postgres"
+    depends_on:
+      - postgres
+      - kong-migration
+    networks:
+      - kong
+  konga:
+    image: pantsel/konga:0.14.9
+    restart: always
+    container_name: konga
+    hostname: konga
+    environment:
+      - "DB_ADAPTER=postgres"
+      - "DB_HOST=postgres"
+      - "DB_PORT=5432"
+      - "DB_USER=postgres"
+      - "DB_PASSWORD=postgres"
+      - "DB_DATABASE=kong"
+      - "NODE_ENV=development"
+    links:
+      - "postgres:postgres"
+    depends_on:
+      - kong
+      - konga-prepare
+      - postgres
+      - kong-migration
+    ports:
+      - "1337:1337"
+    networks:
+      - kong
