@@ -1,3 +1,6 @@
+import consul
+
+
 class StoreConfig:
     ip = ''
 
