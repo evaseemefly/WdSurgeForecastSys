@@ -1,9 +1,11 @@
-from config.consul_config import CONSUL_OPTIONS
-from util.consul import ConsulConfigClient
+# from config.consul_config import CONSUL_OPTIONS
+from config.consul_config import consul_config
 
-CONSUL_HOST: str = CONSUL_OPTIONS.get('SERVER').get('HOST')
-CONSUL_PORT: int = CONSUL_OPTIONS.get('SERVER').get('PORT')
-consul_config = ConsulConfigClient(CONSUL_HOST, CONSUL_PORT)
+# from util.consul import ConsulConfigClient
+
+# CONSUL_HOST: str = CONSUL_OPTIONS.get('SERVER').get('HOST')
+# CONSUL_PORT: int = CONSUL_OPTIONS.get('SERVER').get('PORT')
+# consul_config = ConsulConfigClient(CONSUL_HOST, CONSUL_PORT)
 
 # 温带风暴潮数据库配置
 CONSUL_DB_CONFIG = consul_config.get_consul_kv('wd_db_config')
