@@ -12,7 +12,8 @@ from dao.station import StationSurgeDao
 app = APIRouter()
 
 
-@app.get('/all/last/surge', response_model=List[SurgeRealDataSchema], summary="获取所有站点的状态(最后issue_ts与forecast_ts")
+@app.get('/all/last/surge', response_model=List[SurgeRealDataSchema],
+         summary="获取所有站点的状态(最后issue_ts与forecast_ts")
 def get_station_all_last_surge():
     schema_list: Optional[List[SurgeRealDataSchema]] = StationSurgeDao().get_station_last_surge()
     return schema_list
@@ -47,6 +48,7 @@ def get_station_base_info():
         获取全部的站点基础信息
     @return:
     """
+    # TODO:[-] 23-07-10 此处修改为通过 consul 动态获取对应的服务地址
     target_url: str = 'http://128.5.9.79:8092/station/station/all/list'
     res = requests.get(target_url)
     res_content: str = res.content.decode('utf-8')

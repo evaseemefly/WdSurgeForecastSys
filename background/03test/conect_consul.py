@@ -314,6 +314,7 @@ def main():
     config_key: str = 'server_typhoon_forecast'
     consul_agent: ConsulAgentClient = ConsulAgentClient('128.5.9.79', 8500)
     consul_agent.register(service_key)
+    # TODO:[-] 23-07-10 对于温带风暴潮系统，可以通过从 consul 获取指定 service_key 与对应的配置 config_key 获取 stations 的对应路由
     temp_url: str = consul_agent.get_action_url(config_key, service_key, 'stations')
     pass
 
