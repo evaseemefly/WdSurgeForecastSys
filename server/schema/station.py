@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 from pydantic import BaseModel, Field
 
 
@@ -15,6 +16,20 @@ class StationSchema(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class StationRegionSchema(BaseModel):
+    id: int
+    code: str
+    name: str
+    lat: float
+    lon: float
+    sort: int
+    is_in_common_use: bool
+
+
+class StationRegionSchemaList(BaseModel):
+    regions_list: List[StationRegionSchema]
 
 
 class MixInStationRegionSchema(BaseModel):

@@ -1,0 +1,7 @@
+{
+  "typhoon_forecast_station_v1": {
+    "urls": {
+      "stations": "station/list"
+    }
+  }
+}

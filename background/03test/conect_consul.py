@@ -1,9 +1,12 @@
 import json
 from random import randint
+from typing import Dict
 import requests
 import json
 import consul
 import abc
+# 本项目库
+from ConsulClient import ConsulAgentClient
 
 CONSUL_SETTING = {
     'host': 'localhost',
@@ -280,12 +283,38 @@ def test_get_service_health():
     pass
 
 
+def test_get_service_config(service_key: str):
+    """
+        + 23-07-10
+        测试通过consul读取对应的服务配置
+    :return:
+    """
+    discovery = ConsulServiceDiscovery("128.5.9.79", 8500)
+    # dict_keys(['consul', 'typhoon_forecast_geo_v1', 'typhoon_forecast_station_v1', 'typhoon_forecast_typhoon_v1'])
+    services = discovery.get_services()
+    instances = discovery.get_instances(service_key)
+    # ----
+    # 获取ulrs配置信息
+    cursor = consul.Consul(host='128.5.9.79', port=8500)
+    config = agent_serivce_kv(cursor, 'server_typhoon_forecast')
+    # 获取对应的url相对路径
+    # {'typhoon_forecast_station_v1': {'urls': {'stations': 'station/list'}}}
+    # config.get('typhoon_forecast_station_v1').get('urls').get('stations')
+    pass
+
+
 def main():
     # test_service_kv()
     # test_service_register()
     # test_get_service()
     # test_request_service()
-    test_get_service_health()
+    # test_get_service_health()
+    # test_get_service_config("typhoon_forecast_station_v1")
+    service_key: str = "typhoon_forecast_station_v1"
+    config_key: str = 'server_typhoon_forecast'
+    consul_agent: ConsulAgentClient = ConsulAgentClient('128.5.9.79', 8500)
+    consul_agent.register(service_key)
+    temp_url: str = consul_agent.get_action_url(config_key, service_key, 'stations')
     pass
 
 

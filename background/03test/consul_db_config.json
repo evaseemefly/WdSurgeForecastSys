@@ -1,0 +1,14 @@
+{
+    "driver" : "mysql+mysqldb",
+      "host": "127.0.0.1",
+      "port" : "3306",
+      "username" : "root",
+      "password" : "123456",
+      "database": "wd_forecast_db",
+      "charset": "utf8mb4",
+      "table_name_prefix": "",
+      "echo" : False,
+      "pool_size" : 100,
+      "max_overflow" : 100,
+      "pool_recycle" : 60,
+  }
