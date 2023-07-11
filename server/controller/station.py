@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from schema.station_surge import SurgeRealDataSchema
 from schema.station import StationRegionSchema, StationRegionSchemaList
 from models.station import StationForecastRealDataModel
-
+from config.consul_config import consul_agent
 from dao.station import StationSurgeDao
 
 app = APIRouter()
@@ -35,11 +35,18 @@ def get_station_surge_list(station_code: str, issue_ts: int, start_ts: int, end_
     return res_list
 
 
-@app.get('/all/last/surge/stationinfo', response_model=List[SurgeRealDataSchema],
-         response_model_include=['station_code', 'forecast_dt', 'forecast_ts', 'issue_dt', 'issue_ts', 'surge'],
+@app.get('/all/last/surge/stationinfo', response_model=List[StationRegionSchema],
+         response_model_include=['code', 'id', 'name', 'lat', 'lon', 'sort', 'is_in_common_use'],
          summary="获取站点的潮位集合(规定起止范围)")
 def get_station_all_info():
     list_regions = get_station_base_info()
+    # id = 4
+    # code = 'SHW'
+    # name = '汕尾'
+    # lat = 22.7564
+    # lon = 115.3572
+    # sort = -1
+    # is_in_common_use = True
     return list_regions
 
 
@@ -49,7 +56,12 @@ def get_station_base_info():
     @return:
     """
     # TODO:[-] 23-07-10 此处修改为通过 consul 动态获取对应的服务地址
-    target_url: str = 'http://128.5.9.79:8092/station/station/all/list'
+    service_key: str = "typhoon_forecast_station_v1"
+    config_key: str = 'server_typhoon_forecast'
+    consul_agent.register(service_key)
+    # target_url: str = 'http://128.5.9.79:8092/station/station/all/list'
+    target_url: str = consul_agent.get_action_full_url(config_key, service_key, 'all_stations')
+
     res = requests.get(target_url)
     res_content: str = res.content.decode('utf-8')
     list_region: List[Dict] = json.loads(res_content)
