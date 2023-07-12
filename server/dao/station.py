@@ -1,6 +1,7 @@
 from typing import List, Optional, Any
 
 from sqlalchemy import distinct, select, func, and_
+from sqlalchemy import select, within_group, distinct
 import arrow
 from common.utils import get_remote_url
 from config.store_config import StoreConfig
@@ -49,6 +50,16 @@ class StationSurgeDao(BaseDao):
                                 issue_dt=temp[4], surge=temp[5]) for temp in result]
         return schema_list
 
+    def get_station_max_surge_byissuets(self, issue_ts: int, **kwargs) -> Optional[List[SurgeRealDataSchema]]:
+        """
+            + TODO:[*] 23-07-12
+              获取所有站点的72小时内的最大增水(issue_ts)
+        @param issue_ts:
+        @param kwargs:
+        @return:
+        """
+        pass
+
     def get_station_surge_list(self, station_code: str, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
             Optional[List[StationForecastRealDataModel]]:
         """
@@ -80,3 +91,36 @@ class StationSurgeDao(BaseDao):
         query = session.query(func.max(StationForecastRealDataModel.issue_ts)).filter(
             StationForecastRealDataModel.station_code == station_code)
         return query.scalar()
+
+    def get_last_issue_ts(self) -> int:
+        """
+            + 23-07-12
+            获取最近的一个发布时间
+        @return:
+        """
+        session = self.db.session
+        now_arrow: arrow.Arrow = arrow.utcnow()
+        # 加入动态修改 tb
+        StationForecastRealDataModel.set_split_tab_name(now_arrow)
+        query = session.query(func.max(StationForecastRealDataModel.issue_ts))
+        return query.scalar()
+
+    def get_dist_issue_ts_limit(self, limit_count: int = 10) -> List[int]:
+        """
+            + 23-07-12
+            根据 limit_count 获取 StationForecastRealDataModel 表中最近的 limit_count 个 issue_ts
+        @param limit_count:
+        @return:
+        """
+        session = self.db.session
+        now_arrow: arrow.Arrow = arrow.utcnow()
+        # 加入动态修改 tb
+        StationForecastRealDataModel.set_split_tab_name(now_arrow)
+        # TODO:[*] 23-07-12 此处未测试
+        # 参考2.0特性: https://docs.sqlalchemy.org/en/20/orm/quickstart.html#simple-select
+        # https://wiki.masantu.com/sqlalchemy-tutorial/#crud-2
+        stmt = (select(StationForecastRealDataModel.issue_ts).group_by(StationForecastRealDataModel.issue_ts).order_by(
+            StationForecastRealDataModel.issue_ts).limit(limit_count))
+        query = session.scalar(stmt)
+
+        return query

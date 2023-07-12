@@ -50,6 +50,20 @@ def get_station_all_info():
     return list_regions
 
 
+@app.get('/last/issue_ts/limit', response_model=List[int],
+         summary="获取最近的 Limit 个发布时间戳")
+def get_last_issuets_limit(limit_count: int):
+    """
+        获取最近的 Limit 个发布时间戳
+    @param limit_count:
+    @return:
+    """
+    res_list: List[int] = StationSurgeDao().get_dist_issue_ts_limit(limit_count)
+    return res_list
+
+
+
+
 def get_station_base_info():
     """
         获取全部的站点基础信息
