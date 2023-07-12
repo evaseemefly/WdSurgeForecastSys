@@ -35,7 +35,7 @@ def get_station_surge_list(station_code: str, issue_ts: int, start_ts: int, end_
     return res_list
 
 
-@app.get('/all/last/surge/stationinfo', response_model=List[StationRegionSchema],
+@app.get('/inland/list/all', response_model=List[StationRegionSchema],
          response_model_include=['code', 'id', 'name', 'lat', 'lon', 'sort', 'is_in_common_use'],
          summary="获取站点的潮位集合(规定起止范围)")
 def get_station_all_info():
