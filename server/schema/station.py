@@ -28,6 +28,10 @@ class StationRegionSchema(BaseModel):
     is_in_common_use: bool
 
 
+class StationSurgeJoinRegionSchema(StationRegionSchema):
+    surge: float
+
+
 class StationRegionSchemaList(BaseModel):
     regions_list: List[StationRegionSchema]
 

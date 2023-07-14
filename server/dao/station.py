@@ -1,6 +1,7 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 
 from sqlalchemy import distinct, select, func, and_
+from sqlalchemy.orm import aliased
 from sqlalchemy import select, within_group, distinct
 import arrow
 from common.utils import get_remote_url
@@ -50,14 +51,48 @@ class StationSurgeDao(BaseDao):
                                 issue_dt=temp[4], surge=temp[5]) for temp in result]
         return schema_list
 
-    def get_station_max_surge_byissuets(self, issue_ts: int, **kwargs) -> Optional[List[SurgeRealDataSchema]]:
+    def get_station_max_surge_byissuets(self, issue_ts: int, **kwargs) -> Optional[List[Dict]]:
         """
             + TODO:[*] 23-07-12
               获取所有站点的72小时内的最大增水(issue_ts)
+              根据 发布时间获取该发布时间的 max surge集合
         @param issue_ts:
         @param kwargs:
         @return:
         """
+        session = self.db.session
+        now_arrow: arrow.Arrow = arrow.get(issue_ts)
+        # 加入动态修改 tb
+        StationForecastRealDataModel.set_split_tab_name(now_arrow)
+        #
+        #    SELECT MAX(surge),station_code
+        #    FROM station_realdata_2023
+        #    WHERE issue_ts=1687953600
+        #    GROUP BY station_code
+        # -----------
+        # SELECT station_realdata_2023.station_code, max(station_realdata_2023.surge) AS max_1
+        # FROM station_realdata_2023
+        # WHERE station_realdata_2023.issue_ts = :issue_ts_1 GROUP BY station_realdata_2023.station_code
+        # surge_max_cls = aliased(func.max(StationForecastRealDataModel.surge), name='surge_max')
+        stmt = select(StationForecastRealDataModel.station_code, func.max(StationForecastRealDataModel.surge)).where(
+            StationForecastRealDataModel.issue_ts == issue_ts).group_by(StationForecastRealDataModel.station_code)
+        # stmt = select(StationForecastRealDataModel.station_code, StationForecastRealDataModel.surge).where(
+        #     StationForecastRealDataModel.issue_ts == issue_ts).group_by(StationForecastRealDataModel.station_code)
+        # stmt = select(StationForecastRealDataModel.station_code, StationForecastRealDataModel.surge).where(
+        #     StationForecastRealDataModel.issue_ts == issue_ts)
+        # query = session.execute(stmt)
+        # # ERROR: sqlalchemy.exc.ResourceClosedError: This result object is closed.
+        # res = query.scalars().all()
+        # 只有 staiton_code
+        # 以下两种写法一致
+        # res = session.execute(stmt).scalars().all()
+        # res = session.scalars(stmt).all()
+        res = session.execute(stmt)
+        # surge 保留两位有效数字
+        res_list: List[Dict] = [{'code': row[0], 'surge': round(row[1], 2)} for row in res]
+        # for temp in res:
+        #     print(temp)
+        return res_list
         pass
 
     def get_station_surge_list(self, station_code: str, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
@@ -119,7 +154,8 @@ class StationSurgeDao(BaseDao):
         # TODO:[*] 23-07-12 此处未测试
         # 参考2.0特性: https://docs.sqlalchemy.org/en/20/orm/quickstart.html#simple-select
         # https://wiki.masantu.com/sqlalchemy-tutorial/#crud-2
-        stmt = (select(StationForecastRealDataModel.issue_ts).group_by(StationForecastRealDataModel.issue_ts).order_by(
+        stmt = (select(StationForecastRealDataModel.issue_ts).group_by(
+            StationForecastRealDataModel.issue_ts).order_by(
             StationForecastRealDataModel.issue_ts).limit(limit_count))
         query = session.scalar(stmt)
 

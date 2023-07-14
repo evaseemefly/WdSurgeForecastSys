@@ -4,7 +4,7 @@ from typing import List, Type, Any, Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from schema.station_surge import SurgeRealDataSchema
-from schema.station import StationRegionSchema, StationRegionSchemaList
+from schema.station import StationRegionSchema, StationRegionSchemaList, StationSurgeJoinRegionSchema
 from models.station import StationForecastRealDataModel
 from config.consul_config import consul_agent
 from dao.station import StationSurgeDao
@@ -37,8 +37,20 @@ def get_station_surge_list(station_code: str, issue_ts: int, start_ts: int, end_
 
 @app.get('/inland/list/all', response_model=List[StationRegionSchema],
          response_model_include=['code', 'id', 'name', 'lat', 'lon', 'sort', 'is_in_common_use'],
-         summary="获取站点的潮位集合(规定起止范围)")
+         summary="获取所有国内的潮位站基础信息集合")
 def get_station_all_info():
+    """
+
+    @return: {
+    id = 4
+    code = 'SHW'
+    name = '汕尾'
+    lat = 22.7564
+    lon = 115.3572
+    sort = -1
+    is_in_common_use = True
+    }
+    """
     list_regions = get_station_base_info()
     # id = 4
     # code = 'SHW'
@@ -62,9 +74,34 @@ def get_last_issuets_limit(limit_count: int):
     return res_list
 
 
+@app.get('/surge/max/list', response_model=List[Dict],
+         summary="获取所有站点的72小时内的最大增水(issue_ts)")
+def get_maxsurge_list_byissuets(issue_ts: int):
+    """
+
+    @param issue_ts: 发布时间戳
+    @return: {
+        "code": "AJS",
+        "surge": 2.4800000190734863
+    },
+    """
+    res_list = StationSurgeDao().get_station_max_surge_byissuets(issue_ts)
+    list_station_baseinfo: List[StationRegionSchema] = get_station_base_info()
+    finally_list: List[StationSurgeJoinRegionSchema] = []
+    for row in res_list:
+        code: str = row['code']
+        surge: float = row['surge']
+        query = list(filter(lambda x: x.code == code, list_station_baseinfo))
+        if len(query) > 0:
+            row_dict = dict(query[0])
+            row_dict['surge'] = surge
+            schema = StationSurgeJoinRegionSchema(**row_dict)
+            finally_list.append(schema)
+
+    return finally_list
 
 
-def get_station_base_info():
+def get_station_base_info() -> List[StationRegionSchema]:
     """
         获取全部的站点基础信息
     @return:
