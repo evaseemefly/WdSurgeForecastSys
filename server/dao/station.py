@@ -1,6 +1,6 @@
 from typing import List, Optional, Any, Dict
 
-from sqlalchemy import distinct, select, func, and_
+from sqlalchemy import distinct, select, func, and_, text
 from sqlalchemy.orm import aliased
 from sqlalchemy import select, within_group, distinct
 import arrow
@@ -116,6 +116,35 @@ class StationSurgeDao(BaseDao):
             StationForecastRealDataModel.forecast_ts >= start_ts, StationForecastRealDataModel.forecast_ts <= end_ts)
         res = query.all()
         return res
+
+    def get_station_hourly_surge_list(self, station_code: str, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
+            Optional[List[StationForecastRealDataModel]]:
+        """
+            获取 站点指定时间范围内的整点数据
+        @param station_code:
+        @param issue_ts:
+        @param start_ts:
+        @param end_ts:
+        @param kwargs:
+        @return:
+        """
+
+        # 获取整点的查询语句
+        # """
+        #     SELECT *
+        #     FROM station_realdata_2023
+        #     WHERE issue_ts=1687953600 AND station_code='BHI' AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00'
+        #     ORDER BY issue_ts
+        #     LIMIT 72
+        # """
+        session = self.db.session
+        limit_count: int = 24
+        sql_str: str = text(
+            f"SELECT * FROM station_realdata_2023 WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
+        res = session.execute(sql_str)
+        res = res.fetchall()
+        return res
+        pass
 
     def get_station_last_issue_ts(self, station_code: str) -> int:
         session = self.db.session

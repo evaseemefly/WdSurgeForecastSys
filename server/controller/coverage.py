@@ -10,7 +10,7 @@ app = APIRouter()
 
 
 @app.get('/one/url/ts', response_model=CoverageFileUrlSchema,
-         response_model_include=['remote_url'], summary="获取对应的 tif|nc 文件的远程url", )
+         summary="获取对应的 tif|nc 文件的远程url", )
 def get_coverage_url(issue_ts: int) -> str:
     """
         获取所属当前pid的全部region集合
@@ -19,17 +19,25 @@ def get_coverage_url(issue_ts: int) -> str:
     """
     url: str = ''
     url = CoverageDao().get_tif_file_url(issue_ts=issue_ts)
-    return url
+    res = {'remote_url': url}
+    return res
 
 
 @app.get('/one/info/ts', response_model=CoverageFileInfoSchema,
          response_model_include=['forecast_ts', 'issue_ts', 'task_id', 'relative_path', 'file_name', 'coverage_type'],
          summary="获取对应的 tif|nc 文件的info", )
-def get_coverage_url(issue_ts: int) -> Optional[GeoCoverageFileModel]:
+def get_coverage_info(issue_ts: int) -> Optional[GeoCoverageFileModel]:
     """
         获取所属当前pid的全部region集合
     @param pid:
-    @return:
+    @return:{
+    "forecast_ts": 1685620800,
+    "issue_ts": 1685620800,
+    "task_id": 39268281,
+    "relative_path": "2023/06",
+    "file_name": "NMF_TRN_OSTZSS_CSDT_2023060112_168h_SS_maxSurge.nc",
+    "coverage_type": 2102
+}
     """
     coverage_info = None
     coverage_info = CoverageDao().get_coveage_file(issue_ts=issue_ts)

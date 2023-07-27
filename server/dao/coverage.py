@@ -22,10 +22,10 @@ class BaseCoverageDao(BaseDao):
         @return:
         """
         session = self.db.session
-        query = session.query(GeoCoverageFileModel).filter(issue_ts == issue_ts)
+        query = session.query(GeoCoverageFileModel).filter(GeoCoverageFileModel.issue_ts == issue_ts)
         if kwargs.get('coverage_type') is not None:
             coverage_type: CoverageTypeEnum = kwargs.get('coverage_type')
-            query = query.filter(coverage_type == coverage_type.value)
+            query = query.filter(GeoCoverageFileModel.coverage_type == coverage_type.value)
         return query.first()
 
     def _get_dist_ts_limit(self, limit: int = 10, desc: bool = True) -> List[int]:

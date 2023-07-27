@@ -1,3 +1,4 @@
+import arrow
 import requests
 import json
 from typing import List, Type, Any, Optional, Dict
@@ -29,9 +30,28 @@ def get_target_station_last_issue_ts(station_code: str) -> Optional[int]:
          response_model_include=['station_code', 'forecast_dt', 'forecast_ts', 'issue_dt', 'issue_ts', 'surge'],
          summary="获取站点的潮位集合(规定起止范围)")
 def get_station_surge_list(station_code: str, issue_ts: int, start_ts: int, end_ts: int):
-    res_list: Optional[List[StationForecastRealDataModel]] = StationSurgeDao().get_station_surge_list(station_code,
-                                                                                                      issue_ts,
-                                                                                                      start_ts, end_ts)
+    """
+        获取站点的潮位集合(规定起止范围)——72小时
+    @param station_code:
+    @param issue_ts:  发布时间戳
+    @param start_ts:  起始时间戳
+    @param end_ts:  结束时间戳
+    @return:  [{
+        "station_code": "BHI",
+        "forecast_dt": "2023-06-28T12:00:00",
+        "issue_dt": "2023-06-28T12:00:00",
+        "surge": 0.0,
+        "forecast_ts": 1687953600,
+        "issue_ts": 1687953600
+    },]
+    """
+    # res_list: Optional[List[StationForecastRealDataModel]] = StationSurgeDao().get_station_surge_list(station_code,
+    #                                                                                                   issue_ts,
+    #                                                                                                   start_ts, end_ts)
+    res_list: Optional[List[StationForecastRealDataModel]] = StationSurgeDao().get_station_hourly_surge_list(
+        station_code,
+        issue_ts,
+        start_ts, end_ts)
     return res_list
 
 
@@ -91,14 +111,55 @@ def get_maxsurge_list_byissuets(issue_ts: int):
     for row in res_list:
         code: str = row['code']
         surge: float = row['surge']
+        # name: str = row['name']
         query = list(filter(lambda x: x.code == code, list_station_baseinfo))
         if len(query) > 0:
             row_dict = dict(query[0])
             row_dict['surge'] = surge
+            # row_dict['name'] = name
             schema = StationSurgeJoinRegionSchema(**row_dict)
             finally_list.append(schema)
 
     return finally_list
+
+
+@app.get('/surge/astronomictide/list', response_model=List[Dict])
+def get_astronomictide_list(station_code: str, start_ts: int, end_ts: int):
+    """
+        + 23-07-20
+        获取指定站点的天文潮位
+    @param station_code:
+    @param start_ts:起始时间戳
+    @param end_ts:结束时间戳
+    @return:
+    """
+
+    # TODO:[*] 23-07-20 此处需要修改为采用服务发现
+    # 目前请求地址
+    # http://128.5.10.21:8000/station/station/astronomictide/list?station_code=BHI&start_dt=2023-07-19T16:00:00.000Z&end_dt=2023-07-21T16:00:00.000Z
+    start_dt_str: str = arrow.get(start_ts).format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
+    end_dt_str: str = arrow.get(end_ts).format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
+    # Expected an ISO 8601-like string, but was given '2023-06-28 12:00:00 00:00'. Try passing in a format string to resolve this.
+    target_url: str = f'http://128.5.10.21:8000/station/station/astronomictide/list?station_code={station_code}&start_dt={start_dt_str}&end_dt={end_dt_str}'
+    res = requests.get(target_url)
+    res_content: str = res.content.decode('utf-8')
+    list_region: List[Dict] = json.loads(res_content)
+    return list_region
+
+
+@app.get('/alert/one', response_model=List[Dict],
+         response_model_include=['station_code', 'tide', 'alert'], summary="获取 station_code 的四色警戒潮位")
+def get_station_alert(station_code: str):
+    """
+
+    @param station_code:
+    @return:
+    """
+    target_url: str = f'http://128.5.10.21:8000/station/station/alert?station_code={station_code}'
+    res = requests.get(target_url)
+    res_content: str = res.content.decode('utf-8')
+    list_region: List[Dict] = json.loads(res_content)
+    return list_region
 
 
 def get_station_base_info() -> List[StationRegionSchema]:
