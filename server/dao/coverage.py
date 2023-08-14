@@ -86,6 +86,8 @@ class CoverageDao(BaseCoverageDao):
     def get_dist_ts(self, **kwargs) -> List[int]:
         """
             从 tb: geo_coverage_file 中获取不同的 issue_ts
+            获取最近的不同的 limit=10 个时间戳
+            默认倒叙排列
         @param kwargs:
         @return:
         """

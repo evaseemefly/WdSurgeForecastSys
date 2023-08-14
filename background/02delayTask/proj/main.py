@@ -41,6 +41,8 @@ def test_maxsurge_coverg():
 if __name__ == '__main__':
     # to_create_db()
     test_station_realdata()
-    # test_maxsurge_coverg()
+    test_maxsurge_coverg()
+    print('[-]处理结束')
+    pass
 
 # 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助

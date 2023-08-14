@@ -48,3 +48,25 @@ class SurgeRealDataJoinStationSchema(BaseModel):
     tid: int
     lat: float
     lon: float
+
+
+class AstronomicTideSchema(BaseModel):
+    """
+        天文潮
+    """
+    station_code: str
+    forecast_dt: str
+    surge: float
+
+
+class StationTotalSurgeSchema(BaseModel):
+    """
+        总潮位 schema
+    """
+    station_code: str
+    forecast_dt: str
+    forecast_ts: float
+    issue_ts:float
+    surge: float
+    tide: float
+    total_surge: float

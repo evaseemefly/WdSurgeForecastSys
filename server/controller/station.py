@@ -4,11 +4,11 @@ import json
 from typing import List, Type, Any, Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
-from schema.station_surge import SurgeRealDataSchema
+from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, StationTotalSurgeSchema
 from schema.station import StationRegionSchema, StationRegionSchemaList, StationSurgeJoinRegionSchema
 from models.station import StationForecastRealDataModel
 from config.consul_config import consul_agent
-from dao.station import StationSurgeDao
+from dao.station import StationSurgeDao, StationBaseDao, StationMixInDao
 
 app = APIRouter()
 
@@ -189,3 +189,49 @@ def get_station_base_info() -> List[StationRegionSchema]:
     list_schema_region: List[StationRegionSchema] = [StationRegionSchema(**item) for item in list_region]
     return list_schema_region
     pass
+
+
+@app.get('/dist/code', response_model=List[Dict],
+         response_model_include=['station_code', 'tide', 'alert'], summary="获取 station_code 的四色警戒潮位")
+def get_station_alert():
+    """
+    @return:
+    """
+    # [{'id': 4, 'code': 'SHW', 'name': '汕尾', 'lat': 22.7564, 'lon': 115.3572, 'is_abs': False, 'sort': -1, 'is_in_common_use': True}]
+    list_codes: List[str] = StationBaseDao().get_dist_station_code()
+    return list_codes
+
+
+@app.get('/astornomictide/one', response_model=List[AstronomicTideSchema],
+         response_model_include=['station_code', 'forecast_dt', 'surge'], summary="获取 station_code 的四色警戒潮位")
+def get_station_astornomictide(station_code: str):
+    """
+        获取逐时的天文潮
+    @param station_code:
+    @return:
+    """
+    start = arrow.get('2023-07-31 16:00:00')
+    end = arrow.get('2023-08-02 16:00:00')
+    start_ts: int = start.int_timestamp
+    end_ts: int = end.int_timestamp
+    return StationBaseDao().get_target_astronomictide(station_code, start_ts, end_ts)
+
+
+@app.get('/totalsurge/one', response_model=List[StationTotalSurgeSchema],
+         response_model_include=['station_code', 'forecast_ts', 'issue_ts', 'tide', 'total_surge', 'surge'],
+         summary="获取逐时的总潮位( surge:增水 + tide: 天文潮)")
+def get_station_totalsurge(station_code: str):
+    """
+        获取逐时的总潮位( surge:增水 + tide: 天文潮)
+    @param station_code:
+    @return:
+    """
+    start = arrow.get('2023-07-31 16:00:00')
+    end = arrow.get('2023-08-02 16:00:00')
+    issue_ts = 1690804800
+    start_ts: int = start.int_timestamp
+    end_ts: int = end.int_timestamp
+    res: Optional[List[StationTotalSurgeSchema]] = StationMixInDao().get_station_hourly_totalsurge(station_code,
+                                                                                                   issue_ts, start_ts,
+                                                                                                   end_ts)
+    return res

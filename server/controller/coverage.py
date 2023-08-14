@@ -45,7 +45,7 @@ def get_coverage_info(issue_ts: int) -> Optional[GeoCoverageFileModel]:
     return coverage_info
 
 
-@app.get('/dist/ts', summary="获取 geo_coverage_file 的不同 issue_ts 并以集合的方式返回", )
+@app.get('/dist/ts', summary="获取 geo_coverage_file 的不同 issue_ts 并以集合的方式返回,返回最近的10个时间戳", )
 def get_dist_ts(limit: int = 10) -> List[int]:
     """
         获取 geo_coverage_file 的不同 issue_ts 并以集合的方式返回

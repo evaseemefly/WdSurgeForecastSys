@@ -358,13 +358,14 @@ class CoverageData(IFileInfo):
                                                  infer_datetime_format=False)
                 # 此处需要加入对原矩阵的转置操作
                 data_T: pd.DataFrame = data.transpose()
+                data_T = data_T[data_T != 999.0]
                 # step-3: 生成经纬度集合
                 # 定义经纬度数组
                 # 注意经纬度网格的 长宽 无问题，但是范围有问题
                 # 220
                 lon = np.arange(105, 127, 0.1)
                 # 250
-                lat = np.arange(16, 41, 0.1)
+                lat = np.arange(41, 16, -0.1)
                 # step-4: 创建当前定义的经纬度坐标系的新的DataFrame
                 da = xr.DataArray(data_T, coords=[lat, lon], dims=['lat', 'lon'])
                 # step-5: DataFrame => Dataset

@@ -1,3 +1,5 @@
+import json
+import requests
 from typing import List, Optional, Any, Dict
 
 from sqlalchemy import distinct, select, func, and_, text
@@ -7,7 +9,8 @@ import arrow
 from common.utils import get_remote_url
 from config.store_config import StoreConfig
 from models.station import StationForecastRealDataModel
-from schema.station_surge import SurgeRealDataSchema
+from schema.station import StationRegionSchema
+from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, StationTotalSurgeSchema
 from dao.base import BaseDao
 from common.enums import CoverageTypeEnum, ForecastProductTypeEnum
 
@@ -117,6 +120,22 @@ class StationSurgeDao(BaseDao):
         res = query.all()
         return res
 
+    def get_stations_hourly_surge_list(self, codes: List[str], issue_ts: int, start_ts: int, end_ts: int, **kwargs):
+        """
+            獲取指定 codes 的天文潮小時數據集合
+        @param codes:
+        @param issue_ts:
+        @param start_ts:
+        @param end_ts:
+        @param kwargs:
+        @return:
+        """
+        list_res: List[dict] = []
+        for code in codes:
+            temp_res = self.get_station_hourly_surge_list(code, issue_ts, start_ts, end_ts)
+            list_res.append({'code': code, 'surge_list': temp_res})
+        return list_res
+
     def get_station_hourly_surge_list(self, station_code: str, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
             Optional[List[StationForecastRealDataModel]]:
         """
@@ -138,13 +157,13 @@ class StationSurgeDao(BaseDao):
         #     LIMIT 72
         # """
         session = self.db.session
-        limit_count: int = 24
+        limit_count: int = 72
+        # 获取整点数据
         sql_str: str = text(
             f"SELECT * FROM station_realdata_2023 WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
         res = session.execute(sql_str)
         res = res.fetchall()
         return res
-        pass
 
     def get_station_last_issue_ts(self, station_code: str) -> int:
         session = self.db.session
@@ -189,3 +208,118 @@ class StationSurgeDao(BaseDao):
         query = session.scalar(stmt)
 
         return query
+
+
+class StationBaseDao(BaseDao):
+    """
+        站点基础信息 dao (访问台风预报系统)
+    """
+
+    def get_dist_station_code(self, **kwargs) -> set:
+        """
+            获取不同的站点 code set
+        @param kwargs:
+        @return:
+        """
+        target_url: str = f'http://128.5.10.21:8000/station/station/all/list'
+        res = requests.get(target_url)
+        res_content: str = res.content.decode('utf-8')
+        # [{'id': 4, 'code': 'SHW', 'name': '汕尾', 'lat': 22.7564, 'lon': 115.3572, 'is_abs': False, 'sort': -1,
+        #  'is_in_common_use': True}]
+        list_region_dict: List[Dict] = json.loads(res_content)
+        list_region: List[StationRegionSchema] = []
+        for region_dict in list_region_dict:
+            list_region.append(StationRegionSchema.parse_obj(region_dict))
+        # 针对code 进行去重操作
+        list_codes: List[str] = [station.code for station in list_region]
+        return set(list_codes)
+
+    def get_dist_region(self, **kwargs) -> List[str]:
+        """
+            获取不同的行政区划 code
+        @param kwargs:
+        @return:
+        """
+
+    def get_target_astronomictide(self, code: str, start_ts: int, end_ts: int) -> List[AstronomicTideSchema]:
+        """
+            获取指定站点的天文潮
+            step1: 获取指定站点的 [start,end] 范围内的天文潮集合(间隔1h)
+        @param code: 站点
+        @param start_ts: 起始时间戳
+        @param end_ts: 结束时间戳
+        @return:
+        """
+        target_url: str = f'http://128.5.10.21:8000/station/station/astronomictide/list'
+        start_arrow: arrow.Arrow = arrow.get(start_ts)
+        end_arrow: arrow.Arrow = arrow.get(end_ts)
+        start_dt_str: str = f"{start_arrow.format('YYYY-MM-DDTHH:mm:ss')}Z"
+        end_dt_str: str = f"{end_arrow.format('YYYY-MM-DDTHH:mm:ss')}Z"
+        # 注意时间格式 2023-07-31T16:00:00Z
+        # res = requests.get(target_url,
+        #                    data={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
+        res = requests.get(target_url,
+                           params={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
+        res_content: str = res.content.decode('utf-8')
+        # {'station_code': 'CGM', 'forecast_dt': '2023-07-31T17:00:00Z', 'surge': 441.0}
+        # 天文潮字典集合
+        list_tide_dict: List[Dict] = json.loads(res_content)
+        # 天文潮 schema 集合
+        list_tide: List[AstronomicTideSchema] = []
+        for tide_dict in list_tide_dict:
+            list_tide.append(AstronomicTideSchema.parse_obj(tide_dict))
+        return list_tide
+
+
+class StationMixInDao(StationBaseDao, StationSurgeDao):
+    def get_station_hourly_totalsurge(self, station_code: str, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
+            Optional[List[StationTotalSurgeSchema]]:
+        """
+            获取总潮位集合
+            [*] 获取
+        @param station_code:
+        @param issue_ts:
+        @param start_ts:
+        @param end_ts:
+        @param kwargs:
+        @return:
+        """
+        # TODO:[*] 23-08-13 目前出现的问题是 tide_list 与 surge_list 长度不一致
+
+        # step1: 分別获取憎水 与 天文潮 集合
+        # 每小时的增水集合
+        # [(81500, 0, 'HZO', 6.79, 'dbdbe2af', 1690819200, 1690804800, datetime.datetime(2023, 7, 31, 16, 0), datetime.datetime(2023, 7, 31, 12, 0))]
+        surge_list: Optional[List[StationForecastRealDataModel]] = self.get_station_hourly_surge_list(station_code,
+                                                                                                      issue_ts,
+                                                                                                      start_ts, end_ts)
+        # 每小时的天文潮位
+        # [station_code='HZO' forecast_dt='2023-07-31T16:00:00Z' surge=202.0]
+        tide_list = self.get_target_astronomictide(station_code, start_ts, end_ts)
+        # step2: 按照 station_code 与 forecast_dt 进行拼接
+        # 判断 tide_list 与 surge_list 长度是否相同
+        total_surge_list: Optional[List[StationTotalSurgeSchema]] = []
+        if len(tide_list) == len(surge_list):
+            for index, surge in enumerate(surge_list):
+                #
+                # 0 -(81500,
+                # 1 - 0,
+                # 2 - 'HZO',
+                # 3 - 6.79,
+                # 4 - 'dbdbe2af',
+                # 5 - 1690819200,
+                # 6 - 1690804800,
+                # datetime.datetime(2023, 7, 31, 16, 0),
+                # datetime.datetime(2023, 7, 31, 12, 0))
+                temp_surge = surge
+                temp_tide = tide_list[index]
+                # 合成的总潮位 shcema
+                temp_total_surge: StationTotalSurgeSchema = StationTotalSurgeSchema(station_code=temp_tide.station_code,
+                                                                                    forecast_dt=temp_tide.forecast_dt,
+                                                                                    forecast_ts=temp_surge[5],
+                                                                                    issue_ts=temp_surge[6],
+                                                                                    surge=temp_surge[3],
+                                                                                    tide=temp_tide.surge,
+                                                                                    total_surge=temp_surge[
+                                                                                                    3] + temp_tide.surge)
+                total_surge_list.append(temp_total_surge)
+        return total_surge_list
