@@ -10,7 +10,8 @@ from common.utils import get_remote_url
 from config.store_config import StoreConfig
 from models.station import StationForecastRealDataModel
 from schema.station import StationRegionSchema
-from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, StationTotalSurgeSchema
+from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, StationTotalSurgeSchema, \
+    DistStationTotalSurgeSchema, StationSurgeListSchema, DistStationSurgeListSchema, DistStationTideListSchema
 from dao.base import BaseDao
 from common.enums import CoverageTypeEnum, ForecastProductTypeEnum
 
@@ -140,6 +141,7 @@ class StationSurgeDao(BaseDao):
             Optional[List[StationForecastRealDataModel]]:
         """
             获取 站点指定时间范围内的整点数据
+            [-] 23-08-14 改善通过 group_by + group_contact 的方式改善了效率
         @param station_code:
         @param issue_ts:
         @param start_ts:
@@ -159,8 +161,51 @@ class StationSurgeDao(BaseDao):
         session = self.db.session
         limit_count: int = 72
         # 获取整点数据
+        # TODO:[-] 23-08-14 暂时去掉 整点的条件，因为增水结果均为整点数据
+        # TODO:[*] 23-08-14 此处需要修改为动态获取库表名称
+        tab_name: str = 'station_realdata_2023'
         sql_str: str = text(
             f"SELECT * FROM station_realdata_2023 WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
+
+        res = session.execute(sql_str)
+        res = res.fetchall()
+        return res
+
+    def get_dist_stations_hourly_surge_list(self, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
+            Optional[List[StationForecastRealDataModel]]:
+        """
+            获取 站点指定时间范围内的整点数据
+            [-] 23-08-14 改善通过 group_by + group_contact 的方式改善了效率
+        @param issue_ts:
+        @param start_ts:
+        @param end_ts:
+        @param kwargs:
+        @return:[{
+            'station_code',
+            'surge_list',
+            'forecast_ts_list',
+            'issue_ts'
+        }]
+        """
+
+        # 获取整点的查询语句
+        # """
+        #     SELECT *
+        #     FROM station_realdata_2023
+        #     WHERE issue_ts=1687953600 AND station_code='BHI' AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00'
+        #     ORDER BY issue_ts
+        #     LIMIT 72
+        # """
+        session = self.db.session
+        limit_count: int = 72
+        # 获取整点数据
+        # TODO:[-] 23-08-14 暂时去掉 整点的条件，因为增水结果均为整点数据
+        # sql_str: str = text(
+        #     f"SELECT * FROM station_realdata_2023 WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
+        # TODO:[*] 23-08-14 此处需要修改为动态获取库表名称
+        tab_name: str = 'station_realdata_2023'
+        sql_str: str = text(
+            f"SELECT station_code,group_concat(surge) as 'surge_list',group_concat(forecast_ts) as 'forecast_ts_list',issue_ts FROM {tab_name} WHERE issue_ts={issue_ts} AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} GROUP BY station_code")
         res = session.execute(sql_str)
         res = res.fetchall()
         return res
@@ -270,6 +315,33 @@ class StationBaseDao(BaseDao):
             list_tide.append(AstronomicTideSchema.parse_obj(tide_dict))
         return list_tide
 
+    def get_dist_station_tide_list(self, start_ts: int, end_ts: int) -> List[DistStationTideListSchema]:
+        """
+            + 23-08-16
+            获取所有站点 [start,end] 范围内的 天文潮+时间 集合
+        @param start_ts:
+        @param end_ts:
+        @return:
+        """
+        target_url: str = f'http://128.5.10.21:8000/station/station/dist/astronomictide/list'
+        start_arrow: arrow.Arrow = arrow.get(start_ts)
+        end_arrow: arrow.Arrow = arrow.get(end_ts)
+        start_dt_str: str = f"{start_arrow.format('YYYY-MM-DDTHH:mm:ss')}Z"
+        end_dt_str: str = f"{end_arrow.format('YYYY-MM-DDTHH:mm:ss')}Z"
+        # 注意时间格式 2023-07-31T16:00:00Z
+        # res = requests.get(target_url,
+        #                    data={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
+        res = requests.get(target_url,
+                           params={'start_dt': start_dt_str, 'end_dt': end_dt_str})
+        res_content: str = res.content.decode('utf-8')
+        # {'station_code': 'CGM', 'forecast_dt': '2023-07-31T17:00:00Z', 'surge': 441.0}
+        # 天文潮字典集合
+        list_tide_dict: List[Dict] = json.loads(res_content)
+        list_tide: List[DistStationTideListSchema] = []
+        for temp in list_tide_dict:
+            list_tide.append(DistStationTideListSchema.parse_obj(temp))
+        return list_tide
+
 
 class StationMixInDao(StationBaseDao, StationSurgeDao):
     def get_station_hourly_totalsurge(self, station_code: str, issue_ts: int, start_ts: int, end_ts: int, **kwargs) -> \
@@ -323,3 +395,47 @@ class StationMixInDao(StationBaseDao, StationSurgeDao):
                                                                                                     3] + temp_tide.surge)
                 total_surge_list.append(temp_total_surge)
         return total_surge_list
+
+    def get_dist_stations_surge_list(self, issue_ts: int, start_ts: int, end_ts: int,
+                                     **kwargs) -> Optional[List[DistStationSurgeListSchema]]:
+        """
+            获取所有站点 [start,end] 范围内的 增水集合
+        @param issue_ts:
+        @param start_ts:
+        @param end_ts:
+        @param kwargs:
+        @return:
+        """
+        dist_stations_totalsurge_list: Optional[List[DistStationSurgeListSchema]] = []
+        # TODO:[-] 23-08-14 此种方法效率较差，已弃用
+        # for code in station_codes:
+        #     temp_station_totalsurge_schema: Optional[
+        #         List[StationTotalSurgeSchema]] = self.get_station_hourly_totalsurge(code, issue_ts, start_ts, end_ts)
+        #     temp_dist_station_schema: DistStationTotalSurgeSchema = DistStationTotalSurgeSchema(station_code=code,
+        #                                                                                         station_total_schema=temp_station_totalsurge_schema)
+        #     dist_stations_totalsurge_list.append(temp_dist_station_schema)
+        dist_station_surge_res = self.get_dist_stations_hourly_surge_list(issue_ts, start_ts, end_ts)
+        for temp in dist_station_surge_res:
+            # ('DGG', '-1.86,...', '1690819200,...', 1690804800)
+            temp_code: str = temp[0]
+            temp_surge_str_list: List[str] = temp[1].split(',')
+            temp_surge_list: List[float] = []
+            # TODO:[*] 23-08-21 动态 时间戳 此处会有转换的bug
+            # ValueError: could not convert string to float:
+            for surge_str in temp_surge_str_list:
+                if surge_str != '' or surge_str != '-':
+                    temp_surge_list.append(float(surge_str))
+            temp_forecast_ts_str_list: List[str] = temp[2].split(',')
+            temp_forecast_ts_list: List[int] = []
+            for ts_str in temp_forecast_ts_str_list:
+                if ts_str != '' or ts_str != '-':
+                    temp_forecast_ts_list.append(int(ts_str))
+            temp_issue_ts: int = temp[3]
+            # print(temp)
+            station_surge_list_schema: StationSurgeListSchema = StationSurgeListSchema(
+                forecast_ts_list=temp_forecast_ts_list, surge_list=temp_surge_list)
+            dist_station_surge_list_schema: DistStationSurgeListSchema = DistStationSurgeListSchema(
+                station_code=temp_code, issue_ts=temp_issue_ts, surge_list_schema=station_surge_list_schema)
+            dist_stations_totalsurge_list.append(dist_station_surge_list_schema)
+
+        return dist_stations_totalsurge_list

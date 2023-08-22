@@ -4,7 +4,8 @@ import json
 from typing import List, Type, Any, Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
-from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, StationTotalSurgeSchema
+from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, StationTotalSurgeSchema, \
+    DistStationTotalSurgeSchema, DistStationSurgeListSchema, DistStationTideListSchema, DistStationAlertLevel
 from schema.station import StationRegionSchema, StationRegionSchemaList, StationSurgeJoinRegionSchema
 from models.station import StationForecastRealDataModel
 from config.consul_config import consul_agent
@@ -224,7 +225,14 @@ def get_station_totalsurge(station_code: str):
     """
         获取逐时的总潮位( surge:增水 + tide: 天文潮)
     @param station_code:
-    @return:
+    @return:[{
+        "station_code": "HZO",
+        "forecast_ts": 1690819200, 预报时间戳
+        "issue_ts": 1690804800,  发布时间戳
+        "surge": 6.79, 增水
+        "tide": 202.0, 天文潮
+        "total_surge": 208.79
+    },]
     """
     start = arrow.get('2023-07-31 16:00:00')
     end = arrow.get('2023-08-02 16:00:00')
@@ -235,3 +243,65 @@ def get_station_totalsurge(station_code: str):
                                                                                                    issue_ts, start_ts,
                                                                                                    end_ts)
     return res
+
+
+@app.get('/dist/stations/totalsurge', response_model=List[DistStationTotalSurgeSchema],
+
+         summary="获取所有站点的逐时的总潮位( surge:增水 + tide: 天文潮)")
+def get_dist_stations_totalsurge(start_ts: int, end_ts: int, issue_ts: int):
+    """
+        获取所有站点的逐时的总潮位( surge:增水 + tide: 天文潮)
+    @return:
+    """
+    # start = arrow.get('2023-07-31 16:00:00')
+    # end = arrow.get('2023-08-02 16:00:00')
+    # issue_ts = 1690804800
+    # start_ts: int = start.int_timestamp
+    # end_ts: int = end.int_timestamp
+    # start_ts: int = start
+    # end_ts: int = end
+    # dist_codes: set = StationBaseDao().get_dist_station_code()
+    station_dao = StationMixInDao()
+    # 所有站点的增水集合
+    list_dist_station_surge: Optional[
+        List[DistStationSurgeListSchema]] = station_dao.get_dist_stations_surge_list(
+        issue_ts, start_ts, end_ts)
+    # station_code='AJS' forecast_ts_list=[1690862400, ...] tide_list=[219.0,...]
+    # 所有站点的天文潮集合
+    list_dist_station_tide: Optional[List[DistStationTideListSchema]] = station_dao.get_dist_station_tide_list(start_ts,
+                                                                                                               end_ts)
+    # 所有站点的总潮位集合
+    list_dist_station_total: List[DistStationTotalSurgeSchema] = []
+    # TODO:[-] 23-08-16 以station_code 将两个集合联结
+    for temp_dist_station_surge in list_dist_station_surge:
+        filter_res: Optional[List[DistStationTideListSchema]] = list(filter(
+            lambda x: temp_dist_station_surge.station_code == x.station_code, list_dist_station_tide))
+        if len(filter_res) > 0:
+            temp_dist_station_total: DistStationTotalSurgeSchema = DistStationTotalSurgeSchema(
+                station_code=temp_dist_station_surge.station_code,
+                forecast_ts_list=temp_dist_station_surge.surge_list_schema.forecast_ts_list,
+                surge_list=temp_dist_station_surge.surge_list_schema.surge_list, tide_list=filter_res[0].tide_list)
+            list_dist_station_total.append(temp_dist_station_total)
+
+        pass
+    return list_dist_station_total
+
+
+@app.get('/dist/stations/alertlevel', response_model=List[DistStationAlertLevel],
+
+         summary="获取所有站点的警戒潮位集合")
+def get_dist_stations_alertlevel():
+    host: str = 'http://128.5.10.21:8000'
+    target_url: str = f'{host}/station/station/dist/alert'
+    res = requests.get(target_url, )
+    res_content: str = res.content.decode('utf-8')
+    # {'station_code': 'CGM', 'forecast_dt': '2023-07-31T17:00:00Z', 'surge': 441.0}
+    # 天文潮字典集合
+    list_tide_dict: List[Dict] = json.loads(res_content)
+    list_alert_level: List[DistStationAlertLevel] = []
+    for temp in list_tide_dict:
+        # {ValidationError}1 validation error for DistStationAlertLevel
+        # station
+        #   field required (type=value_error.missing)
+        list_alert_level.append(DistStationAlertLevel.parse_obj(temp))
+    return list_alert_level

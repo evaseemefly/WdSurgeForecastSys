@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import List
+
 from pydantic import BaseModel, Field
 
 
@@ -65,8 +67,45 @@ class StationTotalSurgeSchema(BaseModel):
     """
     station_code: str
     forecast_dt: str
-    forecast_ts: float
-    issue_ts:float
+    forecast_ts: int
+    issue_ts: int
     surge: float
     tide: float
     total_surge: float
+
+
+class StationSurgeListSchema(BaseModel):
+    forecast_ts_list: List[int]
+    surge_list: List[float]
+
+
+class DistStationTideListSchema(BaseModel):
+    station_code: str
+    forecast_ts_list: List[int]
+    tide_list: List[float]
+
+
+class DistStationSurgeListSchema(BaseModel):
+    station_code: str
+    issue_ts: int
+    surge_list_schema: StationSurgeListSchema
+
+
+class DistStationTotalSurgeSchema(BaseModel):
+    """
+        按照不同站点嵌套 总潮位 schema
+    """
+    station_code: str
+    # station_total_schema: List[StationTotalSurgeSchema]
+    forecast_ts_list: List[int]
+    tide_list: List[float]
+    surge_list: List[float]
+
+
+class DistStationAlertLevel(BaseModel):
+    """
+        不同站点的警戒潮位
+    """
+    station_code: str
+    alert_tide_list: List[float]
+    alert_level_list: List[int]
