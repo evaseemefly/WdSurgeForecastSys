@@ -159,7 +159,7 @@ class StationSurgeDao(BaseDao):
         #     LIMIT 72
         # """
         session = self.db.session
-        limit_count: int = 72
+        limit_count: int = 168
         # 获取整点数据
         # TODO:[-] 23-08-14 暂时去掉 整点的条件，因为增水结果均为整点数据
         # TODO:[*] 23-08-14 此处需要修改为动态获取库表名称

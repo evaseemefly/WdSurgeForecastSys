@@ -262,6 +262,8 @@ def get_dist_stations_totalsurge(start_ts: int, end_ts: int, issue_ts: int):
     # end_ts: int = end
     # dist_codes: set = StationBaseDao().get_dist_station_code()
     station_dao = StationMixInDao()
+    # TODO:[-] 23-08-28 加入获取 station_base_info 的逻辑(获取sort)
+    list_dist_station_base_info = get_station_base_info()
     # 所有站点的增水集合
     list_dist_station_surge: Optional[
         List[DistStationSurgeListSchema]] = station_dao.get_dist_stations_surge_list(
@@ -274,11 +276,15 @@ def get_dist_stations_totalsurge(start_ts: int, end_ts: int, issue_ts: int):
     list_dist_station_total: List[DistStationTotalSurgeSchema] = []
     # TODO:[-] 23-08-16 以station_code 将两个集合联结
     for temp_dist_station_surge in list_dist_station_surge:
+        # TODO:[-] 23-08-28 从 list_dist_station_base_info 中获取对应的 station sort
+        filter_station_base_res = list(filter(lambda x: x.code == temp_dist_station_surge.station_code,
+                                              list_dist_station_base_info))
         filter_res: Optional[List[DistStationTideListSchema]] = list(filter(
             lambda x: temp_dist_station_surge.station_code == x.station_code, list_dist_station_tide))
-        if len(filter_res) > 0:
+        if len(filter_res) > 0 and len(filter_station_base_res) > 0:
             temp_dist_station_total: DistStationTotalSurgeSchema = DistStationTotalSurgeSchema(
                 station_code=temp_dist_station_surge.station_code,
+                sort=filter_station_base_res[0].sort,
                 forecast_ts_list=temp_dist_station_surge.surge_list_schema.forecast_ts_list,
                 surge_list=temp_dist_station_surge.surge_list_schema.surge_list, tide_list=filter_res[0].tide_list)
             list_dist_station_total.append(temp_dist_station_total)

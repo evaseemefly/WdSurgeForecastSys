@@ -96,6 +96,7 @@ class DistStationTotalSurgeSchema(BaseModel):
         按照不同站点嵌套 总潮位 schema
     """
     station_code: str
+    sort: int
     # station_total_schema: List[StationTotalSurgeSchema]
     forecast_ts_list: List[int]
     tide_list: List[float]

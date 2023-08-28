@@ -39,6 +39,7 @@ class StationRealDataCase:
         @param local_root_path: 本地存储根目录
         @return:
         """
+        # TODO:[*] 23-08-23 注意此处可能会出现 file =None 而引发的bug
         self.file = self.station_realdata.download(remote_root_path, local_root_path, key=self.key)
 
     def step_to_db(self):

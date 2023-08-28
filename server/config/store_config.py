@@ -2,7 +2,7 @@ import consul
 
 
 class StoreConfig:
-    ip = 'http://localhost:82'
+    ip = 'http://192.168.0.104:82'
 
     @classmethod
     def get_ip(cls):
