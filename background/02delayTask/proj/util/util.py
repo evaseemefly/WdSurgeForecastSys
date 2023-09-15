@@ -14,6 +14,7 @@ def get_relative_path(now: arrow.Arrow) -> str:
     """
         根据传入时间获取相对路径
         root/relative_path/file_name
+        对于 utc 31d 12h
     @param now:
     @return:
     """

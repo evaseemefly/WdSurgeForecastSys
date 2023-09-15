@@ -39,6 +39,7 @@ class TaskInfo:
 
         self.session.add(task_info)
         self.session.commit()
+        self.session.close()
         # self.__set_task_id(task_info.id)
 
     def update(self, task_status: TaskStatusEnum = TaskStatusEnum.RUNNING, task_result: str = None):
@@ -53,6 +54,7 @@ class TaskInfo:
                                                                                         task_result=task_result,
                                                                                         gmt_modify_time=arrow.utcnow().datetime)
             self.session.execute(stmt)
+            self.session.close()
 
     def __set_task_id(self, id: int):
         """

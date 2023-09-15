@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  wd-forecast-server:
+    build:
+      context: .
+      dockerfile: ./wd_server_file
+    image: py37:1.19
+    container_name: wd-forecast-server
+    working_dir: /opt/project
+    privileged: true
+    ports:
+      - "8095:8095"
+    command:
+      - /bin/bash
+    tty: true
+    volumes:
+      - /home/nmefc/proj/wd_forecast_server:/opt/project
+
+

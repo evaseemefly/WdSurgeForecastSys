@@ -29,20 +29,7 @@ from common.comm_dicts import station_code_dicts
 
 
 class IFileInfo:
-    @abc.abstractmethod
-    def get_nearly_forecast_dt(self) -> Arrow:
-        pass
 
-    @abc.abstractmethod
-    def get_file_name(self):
-        pass
-
-    @abc.abstractmethod
-    def download(self, dir_path: str, copy_dir_path: str) -> StationRealDataFile:
-        pass
-
-
-class StationRealData(IFileInfo):
     def __init__(self, now: Arrow):
         self.now: Arrow = now
         self.session = DbFactory().Session
@@ -52,6 +39,7 @@ class StationRealData(IFileInfo):
             预报文件生成的时间
                 预报时间: 00Z  发布时间 09-8=01 15-01
                         12Z          23-8=15 01-15
+            此部分与 StationRealData 中重复
         :return:
         """
         # 2023-05-22T07:58:43.111279+00:00
@@ -74,6 +62,21 @@ class StationRealData(IFileInfo):
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
         return forecast_dt
 
+    @abc.abstractmethod
+    def get_file_name(self):
+        pass
+
+    @abc.abstractmethod
+    def download(self, dir_path: str, copy_dir_path: str) -> StationRealDataFile:
+        pass
+
+
+class StationRealData(IFileInfo):
+    def __init__(self, now: Arrow):
+        super(StationRealData, self).__init__(now)
+        # self.now: Arrow = now
+        # self.session = DbFactory().Session
+
     @decorator_job(JobStepsEnum.DOWNLOAD_STATION)
     def download(self, dir_path: str, copy_dir_path: str, key: str) -> Optional[StationRealDataFile]:
         """
@@ -86,6 +89,7 @@ class StationRealData(IFileInfo):
         now_year_str: str = self.now.format('YYYY')
         now_month_str: str = self.now.format('MM')
         file_name_str: str = self.get_file_name()
+        # TODO:[-] 23-09-06 '/data/remote/NMF_TRN_OSTZSS_CSDT_2023090512_168h_SS_staSurge.txt'
         source_full_path: str = str(pathlib.Path(dir_path) / file_name_str)
         copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
         relative_path: str = f'{now_year_str}/{now_month_str}'
@@ -210,8 +214,9 @@ class CoverageData(IFileInfo):
     root_path: str = r''
 
     def __init__(self, now: Arrow):
-        self.now: Arrow = now
-        self.session = DbFactory().Session
+        super(CoverageData, self).__init__(now)
+        # self.now: Arrow = now
+        # self.session = DbFactory().Session
 
     def get_nearly_forecast_dt(self) -> Arrow:
         """
@@ -250,9 +255,12 @@ class CoverageData(IFileInfo):
         @param copy_dir_path: 存储路径
         @return: StationRealDataFile 海洋站预报潮位文件
         """
-
-        now_year_str: str = self.now.format('YYYY')
-        now_month_str: str = self.now.format('MM')
+        # TODO:[-] 23-09-01 注意 copy path 需要与 convert 的相对路径一致
+        nearly_forecast_arrow: Arrow = self.get_nearly_forecast_dt()
+        # now_year_str: str = self.now.format('YYYY')
+        # now_month_str: str = self.now.format('MM')
+        now_year_str: str = nearly_forecast_arrow.format('YYYY')
+        now_month_str: str = nearly_forecast_arrow.format('MM')
         file_name_str: str = self.get_file_name('txt')
         source_full_path: str = str(pathlib.Path(dir_path) / file_name_str)
         copy_path: str = f'{copy_dir_path}/{now_year_str}/{now_month_str}'
@@ -340,9 +348,13 @@ class CoverageData(IFileInfo):
     def stand_2_dataset(self, dir_path: str, key: str) -> Optional[xr.Dataset]:
         """
             将 dir_path 为根目录根据当前的时间获取对应的文件并标准化后返回 Dataset
+            並不存储为新文件
+            读取时对于 utc 31d 会从 31日目录中读取
         @param dir_path:
         @return:
         """
+        # TODO:[*] 23-09-01 注意此处的相对路径为 23/08 此路径下并为存储对应文件
+        # '/data/local/2023/08/NMF_TRN_OSTZSS_CSDT_2023083112_168h_SS_maxSurge.txt'
         relative_path: str = get_relative_path(
             self.get_nearly_forecast_dt())
         file_name_nc: str = self.get_file_name('txt')
@@ -466,3 +478,5 @@ class CoverageData(IFileInfo):
                                                                              )
             self.session.add(coverage_file_model)
             self.session.commit()
+            self.session.close()
+            pass

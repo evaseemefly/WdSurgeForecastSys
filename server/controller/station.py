@@ -96,7 +96,7 @@ def get_last_issuets_limit(limit_count: int):
 
 
 @app.get('/surge/max/list', response_model=List[Dict],
-         summary="获取所有站点的72小时内的最大增水(issue_ts)")
+         summary="获取所有站点的168(7d)小时内的最大增水(issue_ts)")
 def get_maxsurge_list_byissuets(issue_ts: int):
     """
 

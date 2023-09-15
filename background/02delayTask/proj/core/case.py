@@ -47,6 +47,7 @@ class StationRealDataCase:
             将 station_realdata 存储至db
         @return:
         """
+        # TODO:[*] 23-09-06 使用定时任务触发时 self.file 为 None
         self.station_realdata.to_db(self.file, key=self.key)
 
     @decorator_task('task_station_forecast_realdata', TaskTypeEnum.JOB_STATION)

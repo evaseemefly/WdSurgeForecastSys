@@ -30,7 +30,7 @@ def get_remote_url(file: GeoCoverageFileModel) -> str:
     @return:
     """
     host: str = StoreConfig.get_ip()
-    area: str = 'images/nmefc_download/WD_RESULT'
+    area: str = 'images/WD_RESULT'
     relative_url: str = f'{file.relative_path}/{file.file_name}'
     full_url: str = f'{host}/{area}/{relative_url}'
     # http: // localhost: 82 / images / nmefc_download /
