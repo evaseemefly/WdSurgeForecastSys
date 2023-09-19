@@ -191,7 +191,9 @@ class StationRealData(IFileInfo):
             tab_name: str = StationForecastRealDataModel.get_split_tab_name(self.get_nearly_forecast_dt())
             if self.__check_exist_tab(tab_name) == False:
                 self.__create_realdata_tab(tab_name)
-            for index, temp_surge in enumerate(surge_list):
+            # TODO:[-] 23-09-19 注意温带风暴潮会提前输出一天的预报，需要跳过1天前的数据[25:]
+            split_surge_list = surge_list[25:]
+            for index, temp_surge in enumerate(split_surge_list):
                 temp_dt: Arrow = temp_forecast_start_dt.shift(hours=index)
 
                 temp_station_model: StationForecastRealDataModel = StationForecastRealDataModel(surge=temp_surge,
