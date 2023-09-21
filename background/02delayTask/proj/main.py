@@ -2,11 +2,14 @@
 
 # 按 Ctrl+F5 执行或将其替换为您的代码。
 # 按 双击 Shift 在所有地方搜索类、文件、工具窗口、操作和设置。
+import pathlib
+
 import arrow
 import datetime
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from conf._privacy import FTP_LIST
 from core.db import DbFactory
 from model.base_model import BaseMeta
 from model.task import to_migrate
@@ -15,6 +18,7 @@ from common.comm_dicts import station_code_dicts
 from core.case import StationRealDataCase, case_timer_station_forecast_realdata, case_timer_maxsurge_coverage
 import model.station as st
 import model.coverage as ci
+from util.util import FtpFactory
 
 
 def to_create_db():
@@ -79,6 +83,24 @@ def main():
     # # 启动调度任务
     scheduler.start()
     # daily_wd_forecast_td()
+
+    # TODO:[-] 23-09-20 测试ftp下载风场
+    ftp_opt = FTP_LIST.get('NWP')
+    host = ftp_opt.get('HOST')
+    port = ftp_opt.get('PORT')
+    user_name: str = ftp_opt.get('USER')
+    pwd: str = ftp_opt.get('PWD')
+    ftp_client = FtpFactory(host, port)
+    ftp_client.login(user_name, pwd)
+    local_path: str = ftp_opt.get('LOCAL_PATH')
+    relative_path: str = ftp_opt.get('RELATIVE_PATH')
+    # ftp_client.down_load_file_tree(local_path, relative_path)
+    #
+    target_file_name: str = 'nwp_high_res_wind_2023091900.nc'
+    local_copy_full_path: str = str(pathlib.Path(local_path) / target_file_name)
+    remote_target_full_path: str = str(pathlib.Path(relative_path) / target_file_name)
+    # is_ok: bool = ftp_client.down_load_file(local_copy_full_path, target_file_name)
+    is_ok: bool = ftp_client.down_load_file_bycwd(local_copy_full_path, relative_path, target_file_name)
 
     while True:
         # print(time.time())

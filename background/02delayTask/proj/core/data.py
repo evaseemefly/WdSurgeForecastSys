@@ -15,6 +15,9 @@ import numpy as np
 import xarray as xr
 import rioxarray
 
+# ftp 库
+import ftplib
+
 from common.default import DEFAULT_FK_STR
 from core.db import DbFactory
 from core.files import StationRealDataFile, CoverageFile
@@ -69,6 +72,88 @@ class IFileInfo:
     @abc.abstractmethod
     def download(self, dir_path: str, copy_dir_path: str) -> StationRealDataFile:
         pass
+
+
+class IFtpInfo:
+    """
+        + 23-09-20 新加入了ftp下载 info
+    """
+
+    def __init__(self, root_path: str, remote_path: str, now_arrow: Arrow):
+        self.root_path = root_path
+        self.remote_path = remote_path
+        # self.file_name = file_name
+        # utc 的当前时间
+        self.now_arrow: Arrow = now_arrow
+
+    def get_nearly_forecast_dt(self) -> Arrow:
+        """
+            风场生成逻辑:
+            以 nwp 为例:
+                        nwp_high_res_wind_2023091600.nc | 23/09/16 17:52 [16日 当日 18 - 次日 05] local
+                        nwp_high_res_wind_2023091612.nc | 23/09/17 05:53 [17日 06 - 17日 18]  local
+                        ---
+                        nwp_high_res_wind_2023091600.nc | 23/09/16 17:52 [16日 当日 18 - 次日 05] local
+                        nwp_high_res_wind_2023091612.nc | 23/09/17 05:53 [17日 06 - 17日 18]  local
+                        utc : 00时 -> 17-8 =9
+                        utc : 12时 -> 5-8  =21
+                        23,0,1,2,3,4,5 -8 =
+            获取预报的utc时间
+
+        @return: 获取当前 self.now_arrow(utc)对应的预报时间(utc)
+        """
+        # 小时
+        stamp_hour = self.now_arrow.time().hour
+        now_utc: Arrow = self.now_arrow
+        # 预报基准时间(utc)
+        # 00,12
+        forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
+        # 16 6 -> 18
+        if stamp_hour >= 9 and stamp_hour <= 21:
+            # 预报时间是 前一日 12时
+            # 15
+            forecast_dt = forecast_dt
+        elif stamp_hour < 9:
+            # [0-5]
+            forecast_dt = forecast_dt.shift(hours=-12)
+        elif stamp_hour > 21:
+            forecast_dt = forecast_dt.shift(hours=12)
+        return forecast_dt
+
+    @abc.abstractmethod
+    def get_file_name(self) -> str:
+        pass
+
+
+class WindCoverageData(IFtpInfo):
+    def __init__(self, root_path: str, remote_path: str, now_arrow: Arrow):
+        super(WindCoverageData, self).__init__(root_path, remote_path, now_arrow)
+
+    def get_file_name(self) -> str:
+        """
+            对应的文件名称
+        @return:
+        """
+        forecast_dt: Arrow = self.get_nearly_forecast_dt()
+        date_name: str = forecast_dt.format("YYYYMMDDHH")
+        file_name: str = f'nwp_high_res_wind_{date_name}.nc'
+        return file_name
+
+    def standard_ds(self, dir_path: str) -> bool:
+        """
+            将栅格文件标准化
+        @param dir_path:
+        @return:
+        """
+        return False
+
+    def split_2_coverage(self) -> Optional[CoverageFile]:
+        pass
+
+    def convert_2_tif(self, ds: xr.Dataset, nc_file: CoverageFile):
+        pass
+
+    def loop_2_tif(self, ds: xr.Dataset, forecast_dt: Arrow) -> None:
 
 
 class StationRealData(IFileInfo):
@@ -192,7 +277,11 @@ class StationRealData(IFileInfo):
             if self.__check_exist_tab(tab_name) == False:
                 self.__create_realdata_tab(tab_name)
             # TODO:[-] 23-09-19 注意温带风暴潮会提前输出一天的预报，需要跳过1天前的数据[25:]
-            split_surge_list = surge_list[25:]
+            # TODO:[-] 23-09-21 若168个时刻是 ec;192个时刻是中心风场
+            if len(surge_list) == 168:
+                split_surge_list = surge_list
+            else:
+                split_surge_list = surge_list[25:]
             for index, temp_surge in enumerate(split_surge_list):
                 temp_dt: Arrow = temp_forecast_start_dt.shift(hours=index)
 

@@ -41,6 +41,11 @@ class LogLevelEnum(Enum):
 
 
 class CoverageTypeEnum(Enum):
+    # 原始栅格文件
     SOURCE_COVERAGE_DOCUMENT = 2101
+    # 转换后的栅格文件(nc)
     CONVERT_COVERAGE_FILE = 2102
+    # 转换后的栅格 tif
     CONVERT_TIF_FILE = 2103
+    # NWP 风场
+    SOURCE_COVERAGE_NWP_FILE = 2104
