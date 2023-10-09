@@ -157,6 +157,7 @@ class NWPWindCoverageCase:
         return split_coverage_file
 
     def step_convert_2_tif(self, coverage_file: CoverageFile, field_name: str, key: str) -> bool:
+        # TODO:[*] 23-10-09 此处出错
         self.coverage.convert_2_tif(coverage_file, field_name, key=key)
         return True
 

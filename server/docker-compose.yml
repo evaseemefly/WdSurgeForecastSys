@@ -16,5 +16,6 @@ services:
     tty: true
     volumes:
       - /home/nmefc/proj/wd_forecast_server:/opt/project
+      - /home/nmefc/data/WIND:/data/local_wind_nwp
 
 

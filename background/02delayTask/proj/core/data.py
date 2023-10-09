@@ -242,8 +242,8 @@ class WindCoverageData(IFtpInfo):
         """
         coverage_full_path: str = coverage_file.full_path
         # TODO:[*] 23-09-26 暂时修改为 win 路径
-        coverage_full_path = r'../data/nwp_high_res_wind_2023092512.nc'
-        coverage_full_path = r'E:/05DATA/06wind/2023/09/nwp_high_res_wind_2023092512.nc'
+        # coverage_full_path = r'../data/nwp_high_res_wind_2023092512.nc'
+        # coverage_full_path = r'E:/05DATA/06wind/2023/09/nwp_high_res_wind_2023092512.nc'
         root_path: str = coverage_file.root_path
         relative_path: str = coverage_file.relative_path
         file_name: str = coverage_file.file_name_only
@@ -299,7 +299,10 @@ class WindCoverageData(IFtpInfo):
         @return:
         """
         coord_time: str = 'time'
-        # TODO:[-] 23-09-26 读取 coverage_file
+        # TODO:[*] 23-10-09 线上部署时出错
+        print(f'读取:{coverage_file.full_path}并切分为tif ing')
+        # entrypoints = entry_points().get("xarray.backends", ())
+        # AttributeError: 'EntryPoints' object has no attribute 'get'
         ds = xarray.open_dataset(coverage_file.full_path)
         # 从 ds 中提取所有的时间维度
         for index, temp_dt64 in enumerate(ds.coords[field_name].values):

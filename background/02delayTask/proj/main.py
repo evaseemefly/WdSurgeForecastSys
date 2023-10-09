@@ -94,15 +94,15 @@ def main():
     # 每天 08:50 | 22:50 执行
     print('[-]启动定时任务触发事件:utc 1,15:10')
     # 每日定时处理温带预报产品
-    scheduler.add_job(daily_wd_forecast_td, 'cron', hour='1,15', minute='10')
+    # scheduler.add_job(daily_wd_forecast_td, 'cron', hour='1,15', minute='10')
     # TODO:[*] 23-09-27
     # 每日定时处理西北太风场
     # 更新时间
     # 05: 51 ->   22: 51
     # 17: 51 ->  9: 51
-    scheduler.add_job(daily_nwp_forecast_td, 'cron', hour='9,22', minute='59')
+    # scheduler.add_job(daily_nwp_forecast_td, 'cron', hour='9,22', minute='59')
     # scheduler.add_job(daily_nwp_forecast_td, 'cron', hour='9,22', minute='55')
-    # daily_nwp_forecast_td()
+    daily_nwp_forecast_td()
     # scheduler.add_job(timedTask, 'cron', hour='1,15', minute='32')
     # # 启动调度任务
     # scheduler.start()
