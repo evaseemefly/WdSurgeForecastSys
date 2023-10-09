@@ -2,14 +2,16 @@ import arrow
 import xarray as xr
 from typing import Optional
 from common.enums import CoverageTypeEnum
+from conf._privacy import FTP_LIST
 from core.files import StationRealDataFile, CoverageFile
-from core.data import StationRealData, CoverageData
+from core.data import StationRealData, CoverageData, WindCoverageData
 from model.coverage import GeoCoverageFileModel
 # 配置
 from conf.settings import DOWNLOAD_OPTIONS
 # 自定义装饰器
+from model.mid_models import FtpClientMidModel
 from util.decorators import decorator_task
-from util.util import generate_key
+from util.util import generate_key, FtpFactory
 from common.enums import TaskTypeEnum
 
 # from core.task import
@@ -106,6 +108,69 @@ class MaxSurgeCoverageCase:
         self.step_convert(LOCAL_ROOT_PATH)
 
 
+class NWPWindCoverageCase:
+    """
+        nwp 风场矢量数据下载 case
+    """
+
+    def __init__(self, root_path: str, remote_path: str, utc_now_arrow: arrow.Arrow, key: str):
+        self.coverage: WindCoverageData = WindCoverageData(root_path, remote_path, utc_now_arrow)
+        self.file: Optional[CoverageFile] = None
+        self.timestamp: int = utc_now_arrow.int_timestamp
+        self.key: str = key
+        self.__ds: Optional[xr.Dataset] = None
+        self.ftp_client = self.__init_ftp_client()
+
+    def __init_ftp_client(self):
+        """
+            初始化 ftp client
+        @return:
+        """
+        ftp_opt = FTP_LIST.get('NWP')
+        host = ftp_opt.get('HOST')
+        port = ftp_opt.get('PORT')
+        user_name: str = ftp_opt.get('USER')
+        pwd: str = ftp_opt.get('PWD')
+        ftp_client = FtpFactory(host, port)
+        ftp_client.login(user_name, pwd)
+        return ftp_client
+
+    def step_download(self, local_path: str, relative_path: str, **kwargs):
+        """
+            通过 ftp 下载指定文件
+        @param local_path:
+        @param relative_path:
+        @param kwargs:
+        @return:
+        """
+        key = kwargs.get('key')
+        download_source_file = self.coverage.download(self.ftp_client, local_path, relative_path, key)
+        return download_source_file
+
+    def step_convert(self, coverage_file: CoverageFile, key: str):
+        """
+            按需剪切风场并存储为新的nc文件
+        @param coverage_file:
+        @return:
+        """
+        split_coverage_file = self.coverage.split_2_coverage(coverage_file, key=key)
+        return split_coverage_file
+
+    def step_convert_2_tif(self, coverage_file: CoverageFile, field_name: str, key: str) -> bool:
+        self.coverage.convert_2_tif(coverage_file, field_name, key=key)
+        return True
+
+    def todo(self, task_id: str):
+        nwp_opt = FTP_LIST.get('NWP')
+        remote_relative_path: str = nwp_opt.get('REMOTE_RELATIVE_PATH')
+        local_path: str = nwp_opt.get('LOCAL_PATH')
+        wind_coverage: Optional[CoverageFile] = self.step_download(local_path, remote_relative_path, key=task_id)
+        if wind_coverage is not None:
+            self.step_convert(wind_coverage, task_id)
+            self.step_convert_2_tif(wind_coverage, 'time', task_id)
+        pass
+
+
 def case_timer_station_forecast_realdata():
     """
         海洋站潮位预报 case
@@ -129,3 +194,17 @@ def case_timer_maxsurge_coverage():
     task_key: str = generate_key()
     maxsurge_coverage = MaxSurgeCoverageCase(now_utc, task_key)
     maxsurge_coverage.todo(key=task_key)
+
+
+def cast_timer_nwp_wind_coverage(now_arrow: arrow.Arrow):
+    """
+        定时处理 nwp 风场并入库
+    @return:
+    """
+    task_key: str = generate_key()
+    nwp_opt = FTP_LIST.get('NWP')
+    remote_relative_path: str = nwp_opt.get('REMOTE_RELATIVE_PATH')
+    local_path: str = nwp_opt.get('LOCAL_PATH')
+    nwp_coverage = NWPWindCoverageCase(local_path, remote_relative_path, now_arrow, task_key)
+    nwp_coverage.todo(task_key)
+    pass

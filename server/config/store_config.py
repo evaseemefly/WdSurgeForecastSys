@@ -1,5 +1,11 @@
 import consul
 
+STORE_OPTIONS = {
+    'NWP': {
+        'STORE_ROOT_PATH': 'E:/05DATA/06wind'
+    }
+}
+
 
 class StoreConfig:
     # ip = 'http://192.168.0.104:82'

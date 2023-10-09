@@ -65,10 +65,17 @@ class FtpFactory:
         # 进入到 remote_path 路径下
         self.ftp.cwd(remote_path)
         files_list: List[str] = self.ftp.nlst()
+        # TODO:[-] 23-09-26 修改 ftp 缓冲区为 250KB
+        BUFSIZE: int = 262144
         if file_name in files_list:
-            self.ftp.retrbinary('RETR ' + file_name, file_handler.write)
+            now_str: str = arrow.Arrow.utcnow().format('YYYY-MM-DD|HH:mm:ss')
+            print(f'')
+            print(f'{now_str}[*]下载指定文件:{file_name}ing')
+            self.ftp.retrbinary('RETR ' + file_name, file_handler.write, BUFSIZE)
             is_ok = True
-        file_handler.close()
+            load_over_time: str = arrow.Arrow.utcnow().format('YYYY-MM-DD|HH:mm:ss')
+            print(f'{load_over_time}[-]下载指定文件:{file_name}成功')
+            file_handler.close()
         return is_ok
 
     def down_load_file_tree(self, local_path: str, remote_path: str, cover_path: str = None):

@@ -28,3 +28,19 @@ class CoverageFileInfoSchema(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class WindVectorSchema(BaseModel):
+    """
+        + 23-10-08
+        风场矢量数据
+    """
+    # 预报时间戳
+    forecast_ts: int
+    # 风向
+    wd: float
+    # 风速
+    ws: float
+
+    class Config:
+        orm_mode = False

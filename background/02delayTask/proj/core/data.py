@@ -1,5 +1,8 @@
 import abc
+import datetime
 import pathlib
+
+import xarray
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy import ForeignKey, Sequence, MetaData, Table
 from sqlalchemy import Column, Date, Float, ForeignKey, Integer, text
@@ -19,14 +22,16 @@ import rioxarray
 import ftplib
 
 from common.default import DEFAULT_FK_STR
+from conf._privacy import FTP_LIST
 from core.db import DbFactory
 from core.files import StationRealDataFile, CoverageFile
 from conf.settings import DOWNLOAD_OPTIONS
 from core.task import TaskFile
+from model.mid_models import FtpClientMidModel
 from model.station import StationForecastRealDataModel
 from model.coverage import GeoCoverageFileModel
 from util.decorators import decorator_job
-from util.util import get_relative_path
+from util.util import get_relative_path, FtpFactory
 from common.enums import JobStepsEnum, CoverageTypeEnum
 from common.comm_dicts import station_code_dicts
 
@@ -85,6 +90,7 @@ class IFtpInfo:
         # self.file_name = file_name
         # utc 的当前时间
         self.now_arrow: Arrow = now_arrow
+        self.session = DbFactory().Session
 
     def get_nearly_forecast_dt(self) -> Arrow:
         """
@@ -126,6 +132,13 @@ class IFtpInfo:
 
 
 class WindCoverageData(IFtpInfo):
+    """
+        风场栅格数据
+    """
+    # 经纬度范围
+    lat_range: List[float] = [16.1, 41.0]
+    lon_range: List[float] = [105.0, 126.9]
+
     def __init__(self, root_path: str, remote_path: str, now_arrow: Arrow):
         super(WindCoverageData, self).__init__(root_path, remote_path, now_arrow)
 
@@ -139,6 +152,35 @@ class WindCoverageData(IFtpInfo):
         file_name: str = f'nwp_high_res_wind_{date_name}.nc'
         return file_name
 
+    def get_relative_path(self) -> str:
+        """
+            获取相对路径
+            * 统一根据 get_nearly_forecast_dt -> now_arrow 获取相对路径
+        @return:
+        """
+        forecast_dt: Arrow = self.get_nearly_forecast_dt()
+        return get_relative_path(forecast_dt)
+
+    def get_store_path(self) -> str:
+        """
+            获取存储路径
+            root_path/relative_path
+            * 统一根据 get_nearly_forecast_dt -> now_arrow 获取相对路径 relative_path
+        @return:
+        """
+        forecast_dt: Arrow = self.get_nearly_forecast_dt()
+        # 本地存储的相对路径(相对于root路径)
+        relative_path: str = self.get_relative_path()
+        store_path: str = str(pathlib.Path(self.root_path) / relative_path)
+        return store_path
+
+    def get_local_full_path(self) -> str:
+        """
+            下载到本地的文件全路径
+        @return:
+        """
+        return str(pathlib.Path(self.get_store_path()) / self.get_file_name())
+
     def standard_ds(self, dir_path: str) -> bool:
         """
             将栅格文件标准化
@@ -147,13 +189,171 @@ class WindCoverageData(IFtpInfo):
         """
         return False
 
-    def split_2_coverage(self) -> Optional[CoverageFile]:
+    def download(self, ftp_client: FtpFactory, local_path: str, relative_path: str, key: str, pid=-1,
+                 file_ext: str = '.nc') -> \
+            Optional[CoverageFile]:
+        """
+            下载并返回下载后的 coverage file
+        @return:
+        """
+
+        # local_path: str = ftp_opt.get('LOCAL_PATH')
+        # relative_path: str = ftp_opt.get('RELATIVE_PATH')
+        #
+        target_file_name: str = self.get_file_name()
+        local_copy_full_path: str = self.get_local_full_path()
+        is_ok = True
+        # TODO:[*] 23-09-26 FileExistsError: [WinError 183] 当文件已存在时，无法创建该文件。: 'E:\\05DATA\\06wind'
+        # 'E:\\05DATA\\06wind\\2023\\09\\nwp_high_res_wind_2023092412.nc'
+        if pathlib.Path(local_copy_full_path).parent.exists():
+            pass
+        else:
+            pathlib.Path(local_copy_full_path).parent.mkdir(parents=True)
+        is_ok: bool = ftp_client.down_load_file_bycwd(local_copy_full_path, relative_path, target_file_name)
+        # is_ok: bool = True
+        download_file: Optional[CoverageFile] = None
+        if is_ok:
+            download_file: CoverageFile = CoverageFile(self.root_path, self.get_relative_path(), target_file_name)
+            # TODO:[-] 23-09-25 to db
+            if download_file is not None:
+                coverage_file_model: GeoCoverageFileModel = GeoCoverageFileModel(task_id=key,
+                                                                                 relative_path=download_file.relative_path,
+                                                                                 file_name=download_file.file_name,
+                                                                                 coverage_type=CoverageTypeEnum.NWP_SOURCE_COVERAGE_FILE.value,
+                                                                                 forecast_dt=download_file.forecast_dt_start.datetime,
+                                                                                 forecast_ts=download_file.forecast_dt_start.int_timestamp,
+                                                                                 issue_dt=download_file.forecast_dt_start.datetime,
+                                                                                 issue_ts=download_file.forecast_dt_start.int_timestamp,
+                                                                                 file_ext=file_ext,
+                                                                                 pid=pid
+                                                                                 )
+                self.session.add(coverage_file_model)
+                self.session.commit()
+                self.session.close()
+
+        return download_file
+
+    def split_2_coverage(self, coverage_file: CoverageFile, key: str, pid=-1, file_ext: str = '.nc', ) -> Optional[
+        CoverageFile]:
+        """
+            按需裁剪风场文件
+            将下载后的风场文件切割并存储为新的nc文件
+        @return:
+        """
+        coverage_full_path: str = coverage_file.full_path
+        # TODO:[*] 23-09-26 暂时修改为 win 路径
+        coverage_full_path = r'../data/nwp_high_res_wind_2023092512.nc'
+        coverage_full_path = r'E:/05DATA/06wind/2023/09/nwp_high_res_wind_2023092512.nc'
+        root_path: str = coverage_file.root_path
+        relative_path: str = coverage_file.relative_path
+        file_name: str = coverage_file.file_name_only
+        saved_coverage_file: Optional[CoverageFile] = None
+        if pathlib.Path(coverage_full_path).exists():
+            # TODO:[-] 由于 win 路径的转义字符的问题造成读取bug
+            # nwp_high_res_wind_2023092512.nc
+            # '/data/local/2023/09/nwp_high_res_wind_2023092512.nc'
+            # 在docker中出现:AttributeError: 'EntryPoints' object has no attribute 'get'
+            # docker xarray 版本: '0.20.2'
+            #
+            ds_xr: xarray.Dataset = xarray.open_dataset(coverage_full_path)
+            # 获取经纬度的范围
+            min_lon: float = min(self.lon_range)
+            max_lon: float = max(self.lon_range)
+            min_lat: float = min(self.lat_range)
+            max_lat: float = max(self.lat_range)
+            mask_lon = (ds_xr.lon >= min_lon) & (ds_xr.lon <= max_lon)
+            mask_lat = (ds_xr.lat >= min_lat) & (ds_xr.lat <= max_lat)
+            # 根据经纬度范围裁剪生成新的 dataset
+            cropped_ds = ds_xr.where(mask_lon & mask_lat, drop=True)
+            save_name: str = f'{file_name}_output.nc'
+            save_full_path: str = str(pathlib.Path(root_path) / relative_path / save_name)
+            try:
+                # 已解决
+                cropped_ds.to_netcdf(save_full_path, format='NETCDF4', mode='w')
+                saved_coverage_file = CoverageFile(root_path, relative_path, save_name)
+                if saved_coverage_file is not None:
+                    # TODO:[-] 23-09-25 to db
+                    coverage_file_model: GeoCoverageFileModel = GeoCoverageFileModel(task_id=key,
+                                                                                     relative_path=relative_path,
+                                                                                     file_name=saved_coverage_file.file_name,
+                                                                                     coverage_type=CoverageTypeEnum.NWP_SPLIT_COVERAGE_FILE.value,
+                                                                                     forecast_dt=saved_coverage_file.forecast_dt_start.datetime,
+                                                                                     forecast_ts=saved_coverage_file.forecast_dt_start.int_timestamp,
+                                                                                     issue_dt=saved_coverage_file.forecast_dt_start.datetime,
+                                                                                     issue_ts=saved_coverage_file.forecast_dt_start.int_timestamp,
+                                                                                     file_ext=file_ext,
+                                                                                     pid=pid
+                                                                                     )
+                    self.session.add(coverage_file_model)
+                    self.session.commit()
+                    self.session.close()
+            except Exception as ex:
+                print(f'切分原始风场文件错误:{ex.args}')
+        return saved_coverage_file
+
+    def convert_2_tif(self, coverage_file: CoverageFile, field_name: str, key: str, pid: int = -1, file_ext='.tif'):
+        """
+            将 nc -> 提取为 tif
+        @param ds:
+        @param field_name: 提取的字段名称
+        @return:
+        """
+        coord_time: str = 'time'
+        # TODO:[-] 23-09-26 读取 coverage_file
+        ds = xarray.open_dataset(coverage_file.full_path)
+        # 从 ds 中提取所有的时间维度
+        for index, temp_dt64 in enumerate(ds.coords[field_name].values):
+            # <xarray.DataArray 'time' ()>
+            # array('2023-09-25T12:00:00.000000000', dtype='datetime64[ns]')
+            # Coordinates:
+            #     time     datetime64[ns] 2023-09-25T12:00:00
+            # temp_dt: datetime.datetime = temp_dt64.astype(datetime.datetime)
+            # pd.to_datetime(temp_dt).to_pydatetime()
+            # dataarray datetime64 -> arrow
+            temp_dt_arrow: Arrow = arrow.get(pd.to_datetime(temp_dt64))
+            temp_split_ds: xr.Dataset = ds.isel(time=0)
+            # tif 栅格文件
+            tif_coverage_file: CoverageFile = self._loop_2_tif(coverage_file, temp_split_ds, index, temp_dt_arrow,
+                                                               field_name)
+            # TODO:[-] 23-09-25 to db
+            if tif_coverage_file is not None:
+                coverage_file_model: GeoCoverageFileModel = GeoCoverageFileModel(task_id=key,
+                                                                                 relative_path=tif_coverage_file.relative_path,
+                                                                                 file_name=tif_coverage_file.file_name,
+                                                                                 coverage_type=CoverageTypeEnum.NWP_TIF_FILE.value,
+                                                                                 forecast_dt=temp_dt_arrow.datetime,
+                                                                                 forecast_ts=temp_dt_arrow.int_timestamp,
+                                                                                 issue_dt=tif_coverage_file.forecast_dt_start.datetime,
+                                                                                 issue_ts=tif_coverage_file.forecast_dt_start.int_timestamp,
+                                                                                 file_ext=file_ext,
+                                                                                 pid=pid
+                                                                                 )
+                self.session.add(coverage_file_model)
+                self.session.commit()
+                self.session.close()
         pass
 
-    def convert_2_tif(self, ds: xr.Dataset, nc_file: CoverageFile):
-        pass
-
-    def loop_2_tif(self, ds: xr.Dataset, forecast_dt: Arrow) -> None:
+    def _loop_2_tif(self, coverage_file: CoverageFile, ds: xr.Dataset, index: int, forecast_dt: Arrow,
+                    field_name: str) -> Optional[CoverageFile]:
+        ds.rio.write_crs("epsg:4326", inplace=True)
+        ds_field_ds = xr.Dataset({field_name: ds[field_name]})
+        ds = ds.rio.set_spatial_dims('lat', 'lon')
+        ds = ds.rename_dims({'lat': 'latitude', 'lon': 'longitude'})
+        # 存储为 geotiff
+        geotiff_file_name: str = f'{coverage_file.file_name_only}_{index}.tif'
+        dir_path: pathlib.Path = pathlib.Path(
+            coverage_file.root_path) / coverage_file.relative_path
+        output_file: str = str(dir_path / geotiff_file_name)
+        output_file: CoverageFile = CoverageFile(coverage_file.root_path, coverage_file.relative_path,
+                                                 geotiff_file_name)
+        # 若不纯在指定目录则创建
+        if dir_path.exists() is False:
+            dir_path.mkdir()
+        try:
+            ds.rio.to_raster(output_file.full_path)
+        except Exception as ex:
+            print(f'生成文件:{output_file}出错!')
+        return output_file
 
 
 class StationRealData(IFileInfo):

@@ -128,6 +128,21 @@ class StationRealDataFile(IBaseFile):
 class CoverageFile(IBaseFile):
     """
         NMF_TRN_OSTZSS_CSDT_2023052100_168h_SS_maxSurge.txt
+        NMF             0
+        _TRN            1
+        _OSTZSS         2
+        _CSDT           3
+        _2023052100     4
+        _168h
+        _SS
+        _maxSurge.txt
+        西北太风场:
+        nwp_high_res_wind_2023092112.nc
+        nwp             0
+        high            1
+        res             2
+        wind            3
+        2023092112.nc   4
     """
 
     @property

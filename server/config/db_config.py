@@ -8,7 +8,8 @@ from config.consul_config import consul_config
 # consul_config = ConsulConfigClient(CONSUL_HOST, CONSUL_PORT)
 
 # 温带风暴潮数据库配置
-CONSUL_DB_CONFIG = consul_config.get_consul_kv('wd_db_config')
+# 本地测试
+CONSUL_DB_CONFIG = consul_config.get_consul_kv('wd_db_config_local')
 
 
 class DBConfig:
