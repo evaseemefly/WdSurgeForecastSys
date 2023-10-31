@@ -4,6 +4,7 @@ import pathlib
 
 import xarray
 from sqlalchemy.ext.automap import automap_base
+from sqlalchemy import distinct, select, update
 from sqlalchemy import ForeignKey, Sequence, MetaData, Table
 from sqlalchemy import Column, Date, Float, ForeignKey, Integer, text
 from sqlalchemy.dialects.mysql import DATETIME, INTEGER, TINYINT, VARCHAR
@@ -56,16 +57,16 @@ class IFileInfo:
         stamp_hour = self.now.time().hour
         forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
         # 判断是 00Z 还是 12Z
-        # local time : [9,23)
-        if stamp_hour >= 1 and stamp_hour < 15:
+        # local time : [8,23)
+        if stamp_hour >= 0 and stamp_hour < 15:
             now_utc = now_utc.shift(days=-1)
             # [1,15]
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
         # local time : [23,9)
         elif stamp_hour >= 15:
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
-        # lcoal time: [8,9)
-        elif stamp_hour < 1:
+        # lcoal time: [8,8)
+        elif stamp_hour < 0:
             now_utc = now_utc.shift(hours=-1)
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
         return forecast_dt
@@ -460,14 +461,16 @@ class StationRealData(IFileInfo):
         return file_name
 
     @decorator_job(JobStepsEnum.STORE_DB_STATION)
-    def to_db(self, station_file: StationRealDataFile, key: int):
+    def to_db(self, station_file: StationRealDataFile, key: int, overwrite: bool = True):
         """
             持久化保存
             将 station_file 中的站点潮位数据写入 db
         @param station_file:
         @param key: * 必填参数，装饰器更新 task job 使用
+        @param overwrite: - 默认为 True
         @return:
         """
+        # AttributeError: 'NoneType' object has no attribute 'get_station_realdata_list'
         dict_station_list: Dict[str, Series] = station_file.get_station_realdata_list()
 
         for temp_key in dict_station_list:
@@ -481,23 +484,45 @@ class StationRealData(IFileInfo):
                 self.__create_realdata_tab(tab_name)
             # TODO:[-] 23-09-19 注意温带风暴潮会提前输出一天的预报，需要跳过1天前的数据[25:]
             # TODO:[-] 23-09-21 若168个时刻是 ec;192个时刻是中心风场
-            if len(surge_list) == 168:
+            if len(surge_list) == 168 or len(surge_list) == 169:
                 split_surge_list = surge_list
             else:
                 split_surge_list = surge_list[25:]
             for index, temp_surge in enumerate(split_surge_list):
                 temp_dt: Arrow = temp_forecast_start_dt.shift(hours=index)
+                # TODO:[*] 23-10-27 加入判断是否数据库中已经存在此集合
+                # SELECT station_realdata_2023.id, station_realdata_2023.is_del, station_realdata_2023.forecast_dt, station_realdata_2023.forecast_ts, station_realdata_2023.issue_dt, station_realdata_2023.issue_ts, station_realdata_2023.station_code, station_realdata_2023.surge, station_realdata_2023.task_id
+                # FROM station_realdata_2023
+                # WHERE station_realdata_2023.station_code = :station_code_1 AND station_realdata_2023.forecast_dt = :forecast_dt_1 AND station_realdata_2023.issue_ts = :issue_ts_1
+                stmt = select(StationForecastRealDataModel).where(
+                    StationForecastRealDataModel.station_code == temp_code,
+                    StationForecastRealDataModel.forecast_ts == temp_dt.int_timestamp,
+                    StationForecastRealDataModel.issue_ts == self.get_nearly_forecast_dt().int_timestamp)
+                filter_res = self.session.execute(stmt).fetchall()
+                if len(filter_res) > 0:
+                    update_stmt = (update(StationForecastRealDataModel).where(
+                        StationForecastRealDataModel.station_code == temp_code,
+                        StationForecastRealDataModel.forecast_ts == temp_dt.int_timestamp,
+                        StationForecastRealDataModel.issue_ts == self.get_nearly_forecast_dt().int_timestamp).values(
+                        surge=temp_surge,
+                        station_code=temp_code,
+                        forecast_dt=temp_dt.datetime,
+                        forecast_ts=temp_dt.int_timestamp,
+                        issue_dt=self.get_nearly_forecast_dt().datetime,
+                        issue_ts=self.get_nearly_forecast_dt().int_timestamp,
+                        task_id=key))
+                    self.session.execute(update_stmt)
+                else:
+                    temp_station_model: StationForecastRealDataModel = StationForecastRealDataModel(surge=temp_surge,
+                                                                                                    station_code=temp_code,
+                                                                                                    forecast_dt=temp_dt.datetime,
+                                                                                                    forecast_ts=temp_dt.int_timestamp,
+                                                                                                    issue_dt=self.get_nearly_forecast_dt().datetime,
+                                                                                                    issue_ts=self.get_nearly_forecast_dt().int_timestamp,
+                                                                                                    task_id=key
+                                                                                                    )
 
-                temp_station_model: StationForecastRealDataModel = StationForecastRealDataModel(surge=temp_surge,
-                                                                                                station_code=temp_code,
-                                                                                                forecast_dt=temp_dt.datetime,
-                                                                                                forecast_ts=temp_dt.int_timestamp,
-                                                                                                issue_dt=self.get_nearly_forecast_dt().datetime,
-                                                                                                issue_ts=self.get_nearly_forecast_dt().int_timestamp,
-                                                                                                task_id=key
-                                                                                                )
-
-                self.session.add(temp_station_model)
+                    self.session.add(temp_station_model)
             self.session.commit()
             self.session.close()
             pass
@@ -527,7 +552,7 @@ class CoverageData(IFileInfo):
         forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
         # 判断是 00Z 还是 12Z
         # local time : [9,23)
-        if stamp_hour >= 1 and stamp_hour < 15:
+        if stamp_hour >= 0 and stamp_hour < 15:
             now_utc = now_utc.shift(days=-1)
             # [1,15]
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 12, 0)
@@ -535,7 +560,7 @@ class CoverageData(IFileInfo):
         elif stamp_hour >= 15:
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
         # lcoal time: [8,9)
-        elif stamp_hour < 1:
+        elif stamp_hour < 0:
             now_utc = now_utc.shift(hours=-1)
             forecast_dt: Arrow = Arrow(now_utc.date().year, now_utc.date().month, now_utc.date().day, 0, 0)
         return forecast_dt
@@ -748,29 +773,54 @@ class CoverageData(IFileInfo):
 
     @decorator_job(JobStepsEnum.STORE_DB_COVERAGE)
     def to_db(self, task_id: str, coverage_file: CoverageFile, coverage_type: CoverageTypeEnum, pid=-1, file_ext='.nc',
-              key: str = DEFAULT_FK_STR):
+              key: str = DEFAULT_FK_STR, overwirte: bool = True):
         """
             记录当前 coverage_file to db
+            TODO:[*] 23-10-27 注意此处需要加入唯一性判断，写入时需要先判断数据库中是否已经存在指定issue的同类型 coverage file 信息，若存在则更新?
         @param task_id:
         @param coverage_file:
         @param coverage_type:
         @param pid:
         @param file_ext: 文件后缀 (默认 =.nc)
+        @param overwirte: 是否覆盖已经存在的记录
         @return:
         """
         if coverage_file is not None:
-            coverage_file_model: GeoCoverageFileModel = GeoCoverageFileModel(task_id=task_id,
-                                                                             relative_path=coverage_file.relative_path,
-                                                                             file_name=coverage_file.file_name,
-                                                                             coverage_type=coverage_type.value,
-                                                                             forecast_dt=coverage_file.forecast_dt_start.datetime,
-                                                                             forecast_ts=coverage_file.forecast_dt_start.int_timestamp,
-                                                                             issue_dt=coverage_file.forecast_dt_start.datetime,
-                                                                             issue_ts=coverage_file.forecast_dt_start.int_timestamp,
-                                                                             file_ext=file_ext,
-                                                                             pid=pid
-                                                                             )
-            self.session.add(coverage_file_model)
-            self.session.commit()
-            self.session.close()
+            stmt = select(GeoCoverageFileModel).where(
+                GeoCoverageFileModel.issue_ts == coverage_file.forecast_dt_start.int_timestamp,
+                GeoCoverageFileModel.coverage_type == coverage_type.value)
+            filter_res = self.session.execute(stmt).fetchall()
+            if len(filter_res) > 0:
+                # 若存在指定记录则更新即可
+                update_stmt = (update(GeoCoverageFileModel).where(
+                    GeoCoverageFileModel.issue_ts == coverage_file.forecast_dt_start.int_timestamp,
+                    GeoCoverageFileModel.coverage_type == coverage_type.value).values(task_id=task_id,
+                                                                                      relative_path=coverage_file.relative_path,
+                                                                                      file_name=coverage_file.file_name,
+                                                                                      coverage_type=coverage_type.value,
+                                                                                      forecast_dt=coverage_file.forecast_dt_start.datetime,
+                                                                                      forecast_ts=coverage_file.forecast_dt_start.int_timestamp,
+                                                                                      issue_dt=coverage_file.forecast_dt_start.datetime,
+                                                                                      issue_ts=coverage_file.forecast_dt_start.int_timestamp,
+                                                                                      file_ext=file_ext,
+                                                                                      pid=pid
+                                                                                      ))
+                self.session.execute(update_stmt)
+                pass
+
+            else:
+                coverage_file_model: GeoCoverageFileModel = GeoCoverageFileModel(task_id=task_id,
+                                                                                 relative_path=coverage_file.relative_path,
+                                                                                 file_name=coverage_file.file_name,
+                                                                                 coverage_type=coverage_type.value,
+                                                                                 forecast_dt=coverage_file.forecast_dt_start.datetime,
+                                                                                 forecast_ts=coverage_file.forecast_dt_start.int_timestamp,
+                                                                                 issue_dt=coverage_file.forecast_dt_start.datetime,
+                                                                                 issue_ts=coverage_file.forecast_dt_start.int_timestamp,
+                                                                                 file_ext=file_ext,
+                                                                                 pid=pid
+                                                                                 )
+                self.session.add(coverage_file_model)
+                self.session.commit()
+                self.session.close()
             pass

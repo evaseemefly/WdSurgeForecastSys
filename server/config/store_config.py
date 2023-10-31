@@ -2,7 +2,7 @@ import consul
 
 STORE_OPTIONS = {
     'NWP': {
-        'STORE_ROOT_PATH': 'E:/05DATA/06wind'
+        'STORE_ROOT_PATH': '/data/local_wind_nwp'
     }
 }
 

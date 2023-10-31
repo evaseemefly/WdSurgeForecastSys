@@ -331,6 +331,7 @@ class StationBaseDao(BaseDao):
         # 注意时间格式 2023-07-31T16:00:00Z
         # res = requests.get(target_url,
         #                    data={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
+        # TODO:[*] 23-10-24 此接口在高频请求后总会出现无法返回的bug
         res = requests.get(target_url,
                            params={'start_dt': start_dt_str, 'end_dt': end_dt_str})
         res_content: str = res.content.decode('utf-8')
@@ -423,7 +424,9 @@ class StationMixInDao(StationBaseDao, StationSurgeDao):
             # TODO:[*] 23-08-21 动态 时间戳 此处会有转换的bug
             # ValueError: could not convert string to float:
             for surge_str in temp_surge_str_list:
-                if surge_str != '' or surge_str != '-':
+                # ValueError: could not convert string to float: '-'
+                # 逻辑错了，应该改为 and
+                if surge_str != '' and surge_str != '-':
                     temp_surge_list.append(float(surge_str))
             temp_forecast_ts_str_list: List[str] = temp[2].split(',')
             temp_forecast_ts_list: List[int] = []

@@ -76,6 +76,8 @@ def get_forecast_list(lat: float, lon: float, issue_ts: int) -> List[WindVectorS
     # step1: 获取指定nc文件路径
     coverage_file: Optional[GeoCoverageFileModel] = CoverageDao().get_coveage_file(issue_ts=issue_ts,
                                                                                    coverage_type=CoverageTypeEnum.NWP_SPLIT_COVERAGE_FILE)
+    nwp_forecast_vals: List[WindVectorSchema] = []
     # step2: 加载指定nc文件并根据邻近算法获取对应的时序数据
-    nwp_forecast_vals: List[WindVectorSchema] = NWPVectorDao(coverage_file).read_forecast_list(lat=lat, lon=lon)
+    if coverage_file is not None:
+        nwp_forecast_vals = NWPVectorDao(coverage_file).read_forecast_list(lat=lat, lon=lon)
     return nwp_forecast_vals

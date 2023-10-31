@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: ./wd_server_file
-    image: py37:1.19
+    image: py37:1.20
     container_name: wd-forecast-server
     working_dir: /opt/project
     privileged: true
