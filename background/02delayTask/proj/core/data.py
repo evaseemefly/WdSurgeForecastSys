@@ -228,9 +228,11 @@ class WindCoverageData(IFtpInfo):
                                                                                  file_ext=file_ext,
                                                                                  pid=pid
                                                                                  )
-                self.session.add(coverage_file_model)
-                self.session.commit()
-                self.session.close()
+                try:
+                    self.session.add(coverage_file_model)
+                    self.session.commit()
+                except Exception as ex:
+                    self.session.close()
 
         return download_file
 
@@ -285,11 +287,15 @@ class WindCoverageData(IFtpInfo):
                                                                                      file_ext=file_ext,
                                                                                      pid=pid
                                                                                      )
-                    self.session.add(coverage_file_model)
-                    self.session.commit()
-                    self.session.close()
+                    try:
+                        self.session.add(coverage_file_model)
+                        self.session.commit()
+                        self.session.close()
+                    except Exception as ex:
+                        self.session.close()
             except Exception as ex:
                 print(f'切分原始风场文件错误:{ex.args}')
+                self.session.close()
         return saved_coverage_file
 
     def convert_2_tif(self, coverage_file: CoverageFile, field_name: str, key: str, pid: int = -1, file_ext='.tif'):
@@ -491,6 +497,7 @@ class StationRealData(IFileInfo):
             for index, temp_surge in enumerate(split_surge_list):
                 temp_dt: Arrow = temp_forecast_start_dt.shift(hours=index)
                 # TODO:[*] 23-10-27 加入判断是否数据库中已经存在此集合
+                # TODO:[*] 23-11-01 循环矩阵较为耗时(1min+)可能导致连接被锁
                 # SELECT station_realdata_2023.id, station_realdata_2023.is_del, station_realdata_2023.forecast_dt, station_realdata_2023.forecast_ts, station_realdata_2023.issue_dt, station_realdata_2023.issue_ts, station_realdata_2023.station_code, station_realdata_2023.surge, station_realdata_2023.task_id
                 # FROM station_realdata_2023
                 # WHERE station_realdata_2023.station_code = :station_code_1 AND station_realdata_2023.forecast_dt = :forecast_dt_1 AND station_realdata_2023.issue_ts = :issue_ts_1
@@ -523,6 +530,7 @@ class StationRealData(IFileInfo):
                                                                                                     )
 
                     self.session.add(temp_station_model)
+            # TODO:[*] 23-11-01 注意在每次循环时均加入 commit 操作
             self.session.commit()
             self.session.close()
             pass
@@ -821,6 +829,7 @@ class CoverageData(IFileInfo):
                                                                                  pid=pid
                                                                                  )
                 self.session.add(coverage_file_model)
-                self.session.commit()
-                self.session.close()
+            # TODO:[*] 23-11-01 此处误将commit放在了else中导致上面的update操作导致连接超时
+            self.session.commit()
+            self.session.close()
             pass

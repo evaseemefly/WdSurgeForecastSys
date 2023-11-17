@@ -14,6 +14,14 @@ from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, Stat
     DistStationTotalSurgeSchema, StationSurgeListSchema, DistStationSurgeListSchema, DistStationTideListSchema
 from dao.base import BaseDao
 from common.enums import CoverageTypeEnum, ForecastProductTypeEnum
+from util.consul_util import ConsulExtractClient
+
+CONSUL_SERVICE_NAME = 'station-base'
+consul_client = ConsulExtractClient(CONSUL_SERVICE_NAME)
+
+
+def get_remote_service(uri: str, params: dict):
+    return consul_client.get(uri, params=params)
 
 
 class StationSurgeDao(BaseDao):
@@ -266,9 +274,12 @@ class StationBaseDao(BaseDao):
         @param kwargs:
         @return:
         """
-        target_url: str = f'http://128.5.10.21:8000/station/station/all/list'
-        res = requests.get(target_url)
-        res_content: str = res.content.decode('utf-8')
+        # 此处替换为使用 consul 获取动态服务地址并调用获取结果
+        # target_url: str = f'http://128.5.10.21:8000/station/station/all/list'
+        # res = requests.get(target_url)
+        # res_content: str = res.content.decode('utf-8')
+        res_content = get_remote_service('/station/all/list', {})
+
         # [{'id': 4, 'code': 'SHW', 'name': '汕尾', 'lat': 22.7564, 'lon': 115.3572, 'is_abs': False, 'sort': -1,
         #  'is_in_common_use': True}]
         list_region_dict: List[Dict] = json.loads(res_content)
@@ -278,6 +289,15 @@ class StationBaseDao(BaseDao):
         # 针对code 进行去重操作
         list_codes: List[str] = [station.code for station in list_region]
         return set(list_codes)
+
+    def get_dist_station_list(self, **kwargs) -> List[Dict]:
+        """
+            + 23-11-17 获取所有站点基础信息字典集合
+        @param kwargs:
+        @return:
+        """
+        res_content = get_remote_service('/station/all/list', {})
+        return json.loads(res_content)
 
     def get_dist_region(self, **kwargs) -> List[str]:
         """
@@ -295,7 +315,7 @@ class StationBaseDao(BaseDao):
         @param end_ts: 结束时间戳
         @return:
         """
-        target_url: str = f'http://128.5.10.21:8000/station/station/astronomictide/list'
+        # target_url: str = f'http://128.5.10.21:8000/station/station/astronomictide/list'
         start_arrow: arrow.Arrow = arrow.get(start_ts)
         end_arrow: arrow.Arrow = arrow.get(end_ts)
         start_dt_str: str = f"{start_arrow.format('YYYY-MM-DDTHH:mm:ss')}Z"
@@ -303,9 +323,13 @@ class StationBaseDao(BaseDao):
         # 注意时间格式 2023-07-31T16:00:00Z
         # res = requests.get(target_url,
         #                    data={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
-        res = requests.get(target_url,
-                           params={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
-        res_content: str = res.content.decode('utf-8')
+        # res = requests.get(target_url,
+        #                    params={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
+        # res_content: str = res.content.decode('utf-8')
+        # TODO:*] 23-11-17 加载指定站点的天文潮集合
+        res_content: str = get_remote_service('/station/astronomictide/list',
+                                              params={'station_code': code, 'start_dt': start_dt_str,
+                                                      'end_dt': end_dt_str})
         # {'station_code': 'CGM', 'forecast_dt': '2023-07-31T17:00:00Z', 'surge': 441.0}
         # 天文潮字典集合
         list_tide_dict: List[Dict] = json.loads(res_content)
@@ -332,9 +356,13 @@ class StationBaseDao(BaseDao):
         # res = requests.get(target_url,
         #                    data={'station_code': code, 'start_dt': start_dt_str, 'end_dt': end_dt_str})
         # TODO:[*] 23-10-24 此接口在高频请求后总会出现无法返回的bug
-        res = requests.get(target_url,
-                           params={'start_dt': start_dt_str, 'end_dt': end_dt_str})
-        res_content: str = res.content.decode('utf-8')
+
+        # res = requests.get(target_url,
+        #                    params={'start_dt': start_dt_str, 'end_dt': end_dt_str})
+        # res_content: str = res.content.decode('utf-8')
+        # TODO:[*] 23-11-17 修改为通过服务发现调用接口
+        res_content: str = get_remote_service('/station/dist/astronomictide/list',
+                                              params={'start_dt': start_dt_str, 'end_dt': end_dt_str})
         # {'station_code': 'CGM', 'forecast_dt': '2023-07-31T17:00:00Z', 'surge': 441.0}
         # 天文潮字典集合
         list_tide_dict: List[Dict] = json.loads(res_content)
@@ -342,6 +370,34 @@ class StationBaseDao(BaseDao):
         for temp in list_tide_dict:
             list_tide.append(DistStationTideListSchema.parse_obj(temp))
         return list_tide
+
+
+class AlertBaseDao(BaseDao):
+    def get_target_station_alert(self, station_code: str) -> List[Dict]:
+        """
+            获取指定站点的警戒潮位集合
+        @param station_code:
+        @return:
+        """
+        # target_url: str = f'http://128.5.10.21:8000/station/station/alert?station_code={station_code}'
+        # res = requests.get(target_url)
+        # res_content: str = res.content.decode('utf-8')
+        res_content: str = get_remote_service('/station/alert',
+                                              params={'station_code': station_code, })
+        list_region: List[Dict] = json.loads(res_content)
+
+        return list_region
+
+    def get_dist_station_alert(self) -> List[Dict]:
+        """
+            获取所有站点的警戒潮位集合
+        @return:
+        """
+        res_content: str = get_remote_service('/station/dist/alert',
+                                              params={})
+        list_region: List[Dict] = json.loads(res_content)
+
+        return list_region
 
 
 class StationMixInDao(StationBaseDao, StationSurgeDao):

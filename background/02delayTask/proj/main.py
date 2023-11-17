@@ -109,8 +109,8 @@ def main():
     # daily_nwp_forecast_td()
     # scheduler.add_job(timedTask, 'cron', hour='1,15', minute='32')
     # # 启动调度任务
-    scheduler.start()
-    # daily_wd_forecast_td()
+    # scheduler.start()
+    daily_wd_forecast_td()
 
     # TODO:[-] 23-09-20 测试ftp下载风场
     # ftp_opt = FTP_LIST.get('NWP')

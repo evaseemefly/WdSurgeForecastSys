@@ -8,8 +8,7 @@ from schema.station_surge import SurgeRealDataSchema, AstronomicTideSchema, Stat
     DistStationTotalSurgeSchema, DistStationSurgeListSchema, DistStationTideListSchema, DistStationAlertLevel
 from schema.station import StationRegionSchema, StationRegionSchemaList, StationSurgeJoinRegionSchema
 from models.station import StationForecastRealDataModel
-from config.consul_config import consul_agent
-from dao.station import StationSurgeDao, StationBaseDao, StationMixInDao
+from dao.station import StationSurgeDao, StationBaseDao, StationMixInDao, AlertBaseDao
 
 app = APIRouter()
 
@@ -124,7 +123,7 @@ def get_maxsurge_list_byissuets(issue_ts: int):
     return finally_list
 
 
-@app.get('/surge/astronomictide/list', response_model=List[Dict])
+@app.get('/surge/astronomictide/list', response_model=List[AstronomicTideSchema])
 def get_astronomictide_list(station_code: str, start_ts: int, end_ts: int):
     """
         + 23-07-20
@@ -138,14 +137,16 @@ def get_astronomictide_list(station_code: str, start_ts: int, end_ts: int):
     # TODO:[*] 23-07-20 此处需要修改为采用服务发现
     # 目前请求地址
     # http://128.5.10.21:8000/station/station/astronomictide/list?station_code=BHI&start_dt=2023-07-19T16:00:00.000Z&end_dt=2023-07-21T16:00:00.000Z
-    start_dt_str: str = arrow.get(start_ts).format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
-    end_dt_str: str = arrow.get(end_ts).format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
-    # Expected an ISO 8601-like string, but was given '2023-06-28 12:00:00 00:00'. Try passing in a format string to resolve this.
-    target_url: str = f'http://128.5.10.21:8000/station/station/astronomictide/list?station_code={station_code}&start_dt={start_dt_str}&end_dt={end_dt_str}'
-    res = requests.get(target_url)
-    res_content: str = res.content.decode('utf-8')
-    list_region: List[Dict] = json.loads(res_content)
-    return list_region
+    # start_dt_str: str = arrow.get(start_ts).format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
+    # end_dt_str: str = arrow.get(end_ts).format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
+    # # Expected an ISO 8601-like string, but was given '2023-06-28 12:00:00 00:00'. Try passing in a format string to resolve this.
+    # target_url: str = f'http://128.5.10.21:8000/station/station/astronomictide/list?station_code={station_code}&start_dt={start_dt_str}&end_dt={end_dt_str}'
+    # res = requests.get(target_url)
+    # res_content: str = res.content.decode('utf-8')
+    # list_region: List[Dict] = json.loads(res_content)
+    # TODO:[*] 23-11-17 修改为通过服务发现调用服务获取指定站点的天文潮集合
+    list_res: List[AstronomicTideSchema] = StationBaseDao().get_target_astronomictide(station_code, start_ts, end_ts)
+    return list_res
 
 
 @app.get('/alert/one', response_model=List[Dict],
@@ -156,11 +157,12 @@ def get_station_alert(station_code: str):
     @param station_code:
     @return:
     """
-    target_url: str = f'http://128.5.10.21:8000/station/station/alert?station_code={station_code}'
-    res = requests.get(target_url)
-    res_content: str = res.content.decode('utf-8')
-    list_region: List[Dict] = json.loads(res_content)
-    return list_region
+    # target_url: str = f'http://128.5.10.21:8000/station/station/alert?station_code={station_code}'
+    # res = requests.get(target_url)
+    # res_content: str = res.content.decode('utf-8')
+    # list_region: List[Dict] = json.loads(res_content)
+    res = AlertBaseDao().get_target_station_alert(station_code)
+    return res
 
 
 def get_station_base_info() -> List[StationRegionSchema]:
@@ -169,15 +171,18 @@ def get_station_base_info() -> List[StationRegionSchema]:
     @return:
     """
     # TODO:[-] 23-07-10 此处修改为通过 consul 动态获取对应的服务地址
-    service_key: str = "typhoon_forecast_station_v1"
-    config_key: str = 'server_typhoon_forecast'
-    consul_agent.register(service_key)
-    # target_url: str = 'http://128.5.9.79:8092/station/station/all/list'
-    target_url: str = consul_agent.get_action_full_url(config_key, service_key, 'all_stations')
-
-    res = requests.get(target_url)
-    res_content: str = res.content.decode('utf-8')
-    list_region: List[Dict] = json.loads(res_content)
+    # TODO:[*] 23-11-17 暂时不使用
+    # service_key: str = "typhoon_forecast_station_v1"
+    # config_key: str = 'server_typhoon_forecast'
+    # consul_agent.register(service_key)
+    # # target_url: str = 'http://128.5.9.79:8092/station/station/all/list'
+    # target_url: str = consul_agent.get_action_full_url(config_key, service_key, 'all_stations')
+    #
+    # res = requests.get(target_url)
+    # res_content: str = res.content.decode('utf-8')
+    # list_region: List[Dict] = json.loads(res_content)
+    # TODO:[*] 23-11-17 此处修改为通过 consul 服务发现获取
+    list_region: List[Dict] = StationBaseDao().get_dist_station_list()
     # {'id': 4,
     # 'code': 'SHW',
     # 'name': '汕尾',
@@ -298,13 +303,15 @@ def get_dist_stations_totalsurge(start_ts: int, end_ts: int, issue_ts: int):
 
          summary="获取所有站点的警戒潮位集合")
 def get_dist_stations_alertlevel():
-    host: str = 'http://128.5.10.21:8000'
-    target_url: str = f'{host}/station/station/dist/alert'
-    res = requests.get(target_url, )
-    res_content: str = res.content.decode('utf-8')
+    # host: str = 'http://128.5.10.21:8000'
+    # target_url: str = f'{host}/station/station/dist/alert'
+    # res = requests.get(target_url, )
+    # res_content: str = res.decode('utf-8')
+    # list_tide_dict: List[Dict] = json.loads(res_content)
+    list_tide_dict = AlertBaseDao().get_dist_station_alert()
     # {'station_code': 'CGM', 'forecast_dt': '2023-07-31T17:00:00Z', 'surge': 441.0}
     # 天文潮字典集合
-    list_tide_dict: List[Dict] = json.loads(res_content)
+
     list_alert_level: List[DistStationAlertLevel] = []
     for temp in list_tide_dict:
         # {ValidationError}1 validation error for DistStationAlertLevel
