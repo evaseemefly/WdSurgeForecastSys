@@ -118,13 +118,13 @@ class ConsulClient:
                     port = serv.get('Service').get('Port')
                     serviceList.append({'port': port, 'address': address})
 
-        print("成功节点服务列表：", serviceList)
+        # print("成功节点服务列表：", serviceList)
         if len(serviceList) == 0:
             raise Exception('没有服务可用')
             # print("没有服务可用")
         else:
             service = serviceList[randint(0, len(serviceList) - 1)]  # 随机获取一个可用的服务实例
-            print("返回随机选取的节点", service['address'], int(service['port']))
+            # print("返回随机选取的节点", service['address'], int(service['port']))
             # return service['address'],int(service['port'])
             service_url: str = f'http://{service["address"]}:{service["port"]}'
             return service_url
@@ -202,32 +202,52 @@ class ConsulExtractClient:
         """
         try_count = 0
         # 加入了多次请求的逻辑
-        while try_count < consul_config.CONSUL_MAX_TRY_COUNT:
-            address = self.consul.get_service(self.project_name)
-            # 拼接对应的服务请求地址
-            # address : http://xxx:xx/ 是对应的注册服务的地址
-            url = '{0}{1}'.format(address, uri)
-            if kwargs.get('params') is not None:
-                response = self.client.get(
-                    url=url,
-                    params=kwargs.get('params'),
-                    headers=self.headers)
-            else:
-                response = self.client.get(
-                    url=url,
-                    headers=self.headers)
-            # if response.status_code is 200:
-            #     self.aiops_consul.update_weight(address, success=True)
-            #     return response.content
-            # self.aiops_consul.update_weight(address, success=False)
-            if response.status_code == 200:
-                return response.content.decode(decode)
-                # return response.content
-            else:
-                if is_break:
-                    break
-                try_count += 1
-                logging.warning('{0}: status_code is {1}'.format(url, response.status_code))
+        #
+        address = self.consul.get_service(self.project_name)
+        # 拼接对应的服务请求地址
+        # address : http://xxx:xx/ 是对应的注册服务的地址
+        url = '{0}{1}'.format(address, uri)
+        if kwargs.get('params') is not None:
+            response = self.client.get(
+                url=url,
+                params=kwargs.get('params'),
+                headers=self.headers)
+        else:
+            response = self.client.get(
+                url=url,
+                headers=self.headers)
+        if response.status_code == 200:
+            return response.content.decode(decode)
+            # return response.content
+        else:
+            logging.warning('{0}: status_code is {1}'.format(url, response.status_code))
+        # TODO:[*] 23-11-20 此处取消多次复联的逻辑，会造成延迟较长的连接会多次请求
+        # while try_count < consul_config.CONSUL_MAX_TRY_COUNT:
+        #     address = self.consul.get_service(self.project_name)
+        #     # 拼接对应的服务请求地址
+        #     # address : http://xxx:xx/ 是对应的注册服务的地址
+        #     url = '{0}{1}'.format(address, uri)
+        #     if kwargs.get('params') is not None:
+        #         response = self.client.get(
+        #             url=url,
+        #             params=kwargs.get('params'),
+        #             headers=self.headers)
+        #     else:
+        #         response = self.client.get(
+        #             url=url,
+        #             headers=self.headers)
+        #     # if response.status_code is 200:
+        #     #     self.aiops_consul.update_weight(address, success=True)
+        #     #     return response.content
+        #     # self.aiops_consul.update_weight(address, success=False)
+        #     if response.status_code == 200:
+        #         return response.content.decode(decode)
+        #         # return response.content
+        #     else:
+        #         if is_break:
+        #             break
+        #         try_count += 1
+        #         logging.warning('{0}: status_code is {1}'.format(url, response.status_code))
         raise Exception('service service is error')
 
     def post(self, uri, data):

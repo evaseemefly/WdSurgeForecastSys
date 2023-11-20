@@ -51,7 +51,7 @@ def run():
     """
     启动项目
     """
-    uvicorn.run(app='main:init_app', host="0.0.0.0", port=8096)
+    uvicorn.run(app='main:init_app', host="0.0.0.0", port=8095)
 
 
 def main():
