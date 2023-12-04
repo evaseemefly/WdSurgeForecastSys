@@ -3,12 +3,16 @@
 # 按 Ctrl+F5 执行或将其替换为您的代码。
 # 按 双击 Shift 在所有地方搜索类、文件、工具窗口、操作和设置。
 import pathlib
+import sys
+import argparse
+from typing import Optional, Any
 
 import arrow
 import datetime
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from common.enums import RunTypeEnmum
 from conf._privacy import FTP_LIST
 from core.db import DbFactory
 from model.base_model import BaseMeta
@@ -81,11 +85,28 @@ def daily_nwp_forecast_td() -> None:
     cast_timer_nwp_wind_coverage(now_hourly_arrow)
 
 
+def immediately_forecast_td() -> None:
+    """
+        立即执行 下载处理风场 | 下载处理wd预报产品流程
+    @return:
+    """
+    # 执行下载西北太ecremix风场流程
+    daily_nwp_forecast_td()
+    # 执行下载温带预报产品流程
+    daily_wd_forecast_td()
+    pass
+
+
 def timedTask():
     print(datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
 
 
-def main():
+def delayed_task():
+    """
+        执行 延时任务
+        通过 Scheduler 实现定时任务执行
+    @return:
+    """
     # 创建后台执行的 schedulers
     scheduler = BackgroundScheduler(timezone='UTC')
     # scheduler = BackgroundScheduler()
@@ -104,31 +125,30 @@ def main():
     # 更新时间
     # 05: 51 ->   22: 51
     # 17: 51 ->  9: 51
-    # scheduler.add_job(daily_nwp_forecast_td, 'cron', hour='9,22', minute='59')
+    scheduler.add_job(daily_nwp_forecast_td, 'cron', hour='9,22', minute='59')
     # scheduler.add_job(daily_nwp_forecast_td, 'cron', hour='9,22', minute='55')
-    # daily_nwp_forecast_td()
+
     # scheduler.add_job(timedTask, 'cron', hour='1,15', minute='32')
     # # 启动调度任务
-    # scheduler.start()
-    daily_wd_forecast_td()
+    scheduler.start()
 
-    # TODO:[-] 23-09-20 测试ftp下载风场
-    # ftp_opt = FTP_LIST.get('NWP')
-    # host = ftp_opt.get('HOST')
-    # port = ftp_opt.get('PORT')
-    # user_name: str = ftp_opt.get('USER')
-    # pwd: str = ftp_opt.get('PWD')
-    # ftp_client = FtpFactory(host, port)
-    # ftp_client.login(user_name, pwd)
-    # local_path: str = ftp_opt.get('LOCAL_PATH')
-    # relative_path: str = ftp_opt.get('RELATIVE_PATH')
-    # ftp_client.down_load_file_tree(local_path, relative_path)
-    #
-    # target_file_name: str = 'nwp_high_res_wind_2023091900.nc'
-    # local_copy_full_path: str = str(pathlib.Path(local_path) / target_file_name)
-    # remote_target_full_path: str = str(pathlib.Path(relative_path) / target_file_name)
-    # is_ok: bool = ftp_client.down_load_file_bycwd(local_copy_full_path, relative_path, target_file_name)
-    # nwp_high_res_wind_2023092500.nc
+
+switch_dict = {
+    # 定时任务执行
+    RunTypeEnmum.DELATY_TASK: delayed_task,
+    # 补算立即执行任务： 温带
+    RunTypeEnmum.REALTIME_WD: daily_wd_forecast_td,
+    # 补算立即执行任务： 风场
+    RunTypeEnmum.REALTIME_WIND: daily_nwp_forecast_td
+}
+
+
+def main(run_type: RunTypeEnmum = RunTypeEnmum.DELATY_TASK):
+    do_func: Optional[Any] = switch_dict.get(run_type)
+    if do_func is None:
+        raise Exception('传入run_type参数错误')
+    else:
+        do_func()
 
     while True:
         # print(time.time())
@@ -143,7 +163,19 @@ if __name__ == '__main__':
     # to_create_db()
     # test_station_realdata()
     # test_maxsurge_coverg()
-    main()
+    # 获取运行时传入的参数
+    parser = argparse.ArgumentParser(description='传入运行时参数')
+    parser.add_argument('--run_type', help='运行类型', default=RunTypeEnmum.DELATY_TASK.value, type=int)
+    args = parser.parse_args()
+    # args_dict = vars(args)
+    # # 取出 run_type 参数
+    # run_type_val: str = args_dict.get('run_type')
+    # 获取 run_type 枚举 key(int)
+    run_type_key: int = args.run_type
+    #
+    # run_type: RunTypeEnmum = RunTypeEnmum(int(run_type_val))
+    run_type: RunTypeEnmum = RunTypeEnmum(run_type_key)
+    main(run_type)
     print('[-]处理结束')
     pass
 

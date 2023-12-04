@@ -37,6 +37,8 @@ class NWPVectorDao(BaseVectorDao):
         @param lon:
         @return:
         """
+        # TODO:[*] 23-12-01 重新挂载新的物理硬盘后，读取出错
+        # '/data/local_wind_nwp/2023/11/nwp_high_res_wind_2023113012_output.nc'
         readfile_path: str = self.get_readfile_path()
         field_name = 'ws'
 

@@ -1,6 +1,18 @@
 from enum import Enum, unique
 
 
+class RunTypeEnmum(Enum):
+    """
+        执行 task 类型
+    """
+    # 延时任务
+    DELATY_TASK = 101
+    # 即时任务—— 立即执行温带运算任务
+    REALTIME_WD = 102
+    # 即时任务—— 立即执行风场运算任务
+    REALTIME_WIND = 103
+
+
 class TaskTypeEnum(Enum):
     """
         任务状态枚举
