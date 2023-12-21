@@ -6,7 +6,7 @@ from sqlalchemy import distinct, select, func, and_, text
 from sqlalchemy.orm import aliased
 from sqlalchemy import select, within_group, distinct
 import arrow
-from common.utils import get_remote_url
+from common.utils import get_remote_url, get_target_ts_year
 from config.store_config import StoreConfig
 from models.station import StationForecastRealDataModel
 from schema.station import StationRegionSchema
@@ -150,6 +150,7 @@ class StationSurgeDao(BaseDao):
         """
             获取 站点指定时间范围内的整点数据
             [-] 23-08-14 改善通过 group_by + group_contact 的方式改善了效率
+            TODO:[-] 23-12-21 加入了按照起止时间判断是否跨年，需要分表读取
         @param station_code:
         @param issue_ts:
         @param start_ts:
@@ -168,12 +169,34 @@ class StationSurgeDao(BaseDao):
         # """
         session = self.db.session
         limit_count: int = 168
+        sql_str: str = ''
+        """sql查询语句"""
         # 获取整点数据
-        # TODO:[-] 23-08-14 暂时去掉 整点的条件，因为增水结果均为整点数据
-        # TODO:[*] 23-08-14 此处需要修改为动态获取库表名称
-        tab_name: str = 'station_realdata_2023'
-        sql_str: str = text(
-            f"SELECT * FROM station_realdata_2023 WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
+        # TODO:[-] 23-08-14 此处需要修改为动态获取库表名称
+        # TODO:[-] 23-12-21 注意此处若涉及到跨年的情况，需要跨表查询
+        # 若出现跨年的情况，则需要拼接两张表
+        if get_target_ts_year(start_ts) != get_target_ts_year(end_ts):
+
+            start_year_str: str = get_target_ts_year(start_ts)
+            """起止时间年 str"""
+
+            end_year_str: str = get_target_ts_year(end_ts)
+            """结束时间年 str"""
+
+            start_tab_name: str = f'station_realdata_{start_year_str}'
+            """起始时间对应的表名: year """
+            end_tab_name: str = f'station_realdata_{end_year_str}'
+            """结束时间对应的表名: year """
+
+            # TODO:[*] 23-12-21 跨年后请测试此处是否有错误
+            sql_str = text(
+                f"SELECT * FROM {start_tab_name} WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' UNION SELECT * FROM {end_tab_name} WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
+            pass
+        else:
+            year_str: str = get_target_ts_year(start_ts)
+            tab_name: str = f'station_realdata_{year_str}'
+            sql_str = text(
+                f"SELECT * FROM {tab_name} WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
 
         res = session.execute(sql_str)
         res = res.fetchall()
@@ -184,6 +207,7 @@ class StationSurgeDao(BaseDao):
         """
             获取 站点指定时间范围内的整点数据
             [-] 23-08-14 改善通过 group_by + group_contact 的方式改善了效率
+            TODO:[-] 23-12-21 加入了跨表查询的查询逻辑
         @param issue_ts:
         @param start_ts:
         @param end_ts:
@@ -210,10 +234,32 @@ class StationSurgeDao(BaseDao):
         # TODO:[-] 23-08-14 暂时去掉 整点的条件，因为增水结果均为整点数据
         # sql_str: str = text(
         #     f"SELECT * FROM station_realdata_2023 WHERE issue_ts={issue_ts} AND station_code='{station_code}' AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} AND DATE_FORMAT(forecast_dt,'%i:%s')='00:00' ORDER BY issue_ts LIMIT {limit_count}")
-        # TODO:[*] 23-08-14 此处需要修改为动态获取库表名称
-        tab_name: str = 'station_realdata_2023'
-        sql_str: str = text(
-            f"SELECT station_code,group_concat(surge) as 'surge_list',group_concat(forecast_ts) as 'forecast_ts_list',issue_ts FROM {tab_name} WHERE issue_ts={issue_ts} AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} GROUP BY station_code")
+        # TODO:[-] 23-08-14 此处需要修改为动态获取库表名称
+        # TODO:[*] 23-12-21 涉及到跨年的情况，需要修改为动态获取库表名称
+        # tab_name: str = 'station_realdata_2023'
+        sql_str: str = ''
+        """sql查询语句"""
+        if get_target_ts_year(start_ts) != get_target_ts_year(end_ts):
+            start_year_str: str = get_target_ts_year(start_ts)
+            """起止时间年 str"""
+
+            end_year_str: str = get_target_ts_year(end_ts)
+            """结束时间年 str"""
+
+            start_tab_name: str = f'station_realdata_{start_year_str}'
+            """起始时间对应的表名: year """
+            end_tab_name: str = f'station_realdata_{end_year_str}'
+            """结束时间对应的表名: year """
+            # TODO:[*] 23-12-21 跨年后请测试此处是否有错误
+            sql_str = text(
+                f"SELECT station_code,group_concat(surge) as 'surge_list',group_concat(forecast_ts) as 'forecast_ts_list',issue_ts FROM {start_tab_name} WHERE issue_ts={issue_ts} AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} GROUP BY station_code order by forecast_ts_list UNION SELECT station_code,group_concat(surge) as 'surge_list',group_concat(forecast_ts) as 'forecast_ts_list',issue_ts FROM {end_tab_name} WHERE issue_ts={issue_ts} AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} GROUP BY station_code order by forecast_ts_list")
+            pass
+        else:
+            year_str: str = get_target_ts_year(start_ts)
+            tab_name: str = f'station_realdata_{year_str}'
+            # TODO:[*] 23-12-21 应加入 order by 控制拼接后的时间与对应的surge的顺序
+            sql_str = text(
+                f"SELECT station_code,group_concat(surge) as 'surge_list',group_concat(forecast_ts) as 'forecast_ts_list',issue_ts FROM {tab_name} WHERE issue_ts={issue_ts} AND forecast_ts>={start_ts} AND forecast_ts<={end_ts} GROUP BY station_code")
         res = session.execute(sql_str)
         res = res.fetchall()
         return res

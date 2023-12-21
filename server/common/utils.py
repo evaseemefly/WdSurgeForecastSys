@@ -35,3 +35,16 @@ def get_remote_url(file: GeoCoverageFileModel) -> str:
     full_url: str = f'{host}/{area}/{relative_url}'
     # http: // localhost: 82 / images / nmefc_download /
     return full_url
+
+
+def get_target_ts_year(ts: int) -> str:
+    """
+        + 23-12-21
+        获取指定时间戳对应的year str
+        默认返回 1970
+    @param ts:
+    @return:
+    """
+    year_str: str = '1970'
+    year_str = str(arrow.get(ts).date().year)
+    return year_str
