@@ -149,6 +149,7 @@ def main(run_type: RunTypeEnmum = RunTypeEnmum.DELATY_TASK):
         raise Exception('传入run_type参数错误')
     else:
         do_func()
+        print('[-]处理结束')
 
     while True:
         # print(time.time())
@@ -176,7 +177,7 @@ if __name__ == '__main__':
     # run_type: RunTypeEnmum = RunTypeEnmum(int(run_type_val))
     run_type: RunTypeEnmum = RunTypeEnmum(run_type_key)
     main(run_type)
-    print('[-]处理结束')
+
     pass
 
 # 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助

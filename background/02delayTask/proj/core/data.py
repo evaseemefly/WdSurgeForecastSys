@@ -258,6 +258,7 @@ class WindCoverageData(IFtpInfo):
             # 在docker中出现:AttributeError: 'EntryPoints' object has no attribute 'get'
             # docker xarray 版本: '0.20.2'
             #
+            print(f'读取风场文件目录:{coverage_full_path}')
             ds_xr: xarray.Dataset = xarray.open_dataset(coverage_full_path)
             # 获取经纬度的范围
             min_lon: float = min(self.lon_range)
@@ -495,6 +496,7 @@ class StationRealData(IFileInfo):
             else:
                 split_surge_list = surge_list[25:]
             for index, temp_surge in enumerate(split_surge_list):
+
                 temp_dt: Arrow = temp_forecast_start_dt.shift(hours=index)
                 # TODO:[*] 23-10-27 加入判断是否数据库中已经存在此集合
                 # TODO:[*] 23-11-01 循环矩阵较为耗时(1min+)可能导致连接被锁
@@ -519,6 +521,10 @@ class StationRealData(IFileInfo):
                         issue_ts=self.get_nearly_forecast_dt().int_timestamp,
                         task_id=key))
                     self.session.execute(update_stmt)
+                # TODO:[-] 24-05-15 注意此处有可能会出现由于原始数据存在Nan导致的错误,需要过滤掉nan数据
+                elif temp_surge == np.nan or temp_surge == None:
+                    continue
+                    # pd.isna(temp_surge)
                 else:
                     temp_station_model: StationForecastRealDataModel = StationForecastRealDataModel(surge=temp_surge,
                                                                                                     station_code=temp_code,
