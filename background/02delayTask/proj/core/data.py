@@ -508,7 +508,10 @@ class StationRealData(IFileInfo):
                     StationForecastRealDataModel.forecast_ts == temp_dt.int_timestamp,
                     StationForecastRealDataModel.issue_ts == self.get_nearly_forecast_dt().int_timestamp)
                 filter_res = self.session.execute(stmt).fetchall()
-                if len(filter_res) > 0:
+                # TODO:[-] 24-05-15 注意此处有可能会出现由于原始数据存在Nan导致的错误,需要过滤掉nan数据
+                if temp_surge == np.nan or temp_surge == None or np.isnan(temp_surge):
+                    continue
+                elif len(filter_res) > 0:
                     update_stmt = (update(StationForecastRealDataModel).where(
                         StationForecastRealDataModel.station_code == temp_code,
                         StationForecastRealDataModel.forecast_ts == temp_dt.int_timestamp,
@@ -521,10 +524,10 @@ class StationRealData(IFileInfo):
                         issue_ts=self.get_nearly_forecast_dt().int_timestamp,
                         task_id=key))
                     self.session.execute(update_stmt)
-                # TODO:[-] 24-05-15 注意此处有可能会出现由于原始数据存在Nan导致的错误,需要过滤掉nan数据
-                elif temp_surge == np.nan or temp_surge == None:
-                    continue
-                    # pd.isna(temp_surge)
+
+                # elif temp_surge == np.nan or temp_surge == None:
+                #     continue
+                # pd.isna(temp_surge)
                 else:
                     temp_station_model: StationForecastRealDataModel = StationForecastRealDataModel(surge=temp_surge,
                                                                                                     station_code=temp_code,

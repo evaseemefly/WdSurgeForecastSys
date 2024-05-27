@@ -80,4 +80,5 @@ def get_forecast_list(lat: float, lon: float, issue_ts: int) -> List[WindVectorS
     # step2: 加载指定nc文件并根据邻近算法获取对应的时序数据
     if coverage_file is not None:
         nwp_forecast_vals = NWPVectorDao(coverage_file).read_forecast_list(lat=lat, lon=lon)
+        # nwp_forecast_vals = [WindVectorSchema(forecast_ts=1, wd=None, ws=None)]
     return nwp_forecast_vals

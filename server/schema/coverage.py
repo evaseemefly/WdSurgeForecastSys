@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -37,10 +37,14 @@ class WindVectorSchema(BaseModel):
     """
     # 预报时间戳
     forecast_ts: int
+    # # 风向
+    # wd: Union[float, None] = None
+    # # 风速
+    # ws: Union[float, None] = None
     # 风向
-    wd: float
+    wd: Optional[float] = Field(None)
     # 风速
-    ws: float
+    ws: Optional[float] = Field(None)
 
     class Config:
         orm_mode = False
